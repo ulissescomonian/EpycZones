@@ -3,8 +3,11 @@ import ApplicationServices
 
 enum WindowManager {
 
-    /// Stores previous window frames for "Restore" functionality. Key = window hash.
-    private static var previousFrames: [Int: CGRect] = [:]
+    /// Undo stack per window (key = window hash). Each entry is a frame before a snap.
+    private static var undoStacks: [Int: [CGRect]] = [:]
+    /// Redo stack per window.
+    private static var redoStacks: [Int: [CGRect]] = [:]
+    private static let maxUndoDepth = 20
 
     // MARK: - Public
 
@@ -70,10 +73,29 @@ enum WindowManager {
 
     private static func restoreWindow(_ window: AXUIElement, screen: NSScreen) {
         let key = windowHash(window)
-        if let prev = previousFrames[key] {
-            previousFrames.removeValue(forKey: key)
-            applyFrame(prev, to: window)
+        guard var stack = undoStacks[key], let prev = stack.popLast() else { return }
+        undoStacks[key] = stack
+
+        // Save current frame to redo stack before restoring
+        if let currentFrame = currentNSFrame(of: window) {
+            redoStacks[key, default: []].append(currentFrame)
         }
+        applyFrame(prev, to: window)
+    }
+
+    /// Redo: re-apply the last undone snap.
+    static func redoSnap() {
+        guard AccessibilityChecker.isGranted else { return }
+        guard let window = getFocusedWindow() else { return }
+        let key = windowHash(window)
+        guard var stack = redoStacks[key], let next = stack.popLast() else { return }
+        redoStacks[key] = stack
+
+        // Save current frame to undo stack
+        if let currentFrame = currentNSFrame(of: window) {
+            undoStacks[key, default: []].append(currentFrame)
+        }
+        applyFrame(next, to: window)
     }
 
     private static func resizeWindow(_ window: AXUIElement, screen: NSScreen, factor: Double) {
@@ -112,16 +134,26 @@ enum WindowManager {
     }
 
     private static func saveFrame(of window: AXUIElement) {
+        guard let frame = currentNSFrame(of: window) else { return }
+        let key = windowHash(window)
+        undoStacks[key, default: []].append(frame)
+        if undoStacks[key]!.count > maxUndoDepth {
+            undoStacks[key]!.removeFirst()
+        }
+        // Clear redo stack on new action
+        redoStacks[key] = nil
+    }
+
+    private static func currentNSFrame(of window: AXUIElement) -> CGRect? {
         guard let axPos = getPosition(of: window),
-              let axSize = getSize(of: window) else { return }
+              let axSize = getSize(of: window) else { return nil }
         let primaryHeight = NSScreen.screens[0].frame.height
-        let nsFrame = CGRect(
+        return CGRect(
             x: axPos.x,
             y: primaryHeight - axPos.y - axSize.height,
             width: axSize.width,
             height: axSize.height
         )
-        previousFrames[windowHash(window)] = nsFrame
     }
 
     private static func windowHash(_ window: AXUIElement) -> Int {

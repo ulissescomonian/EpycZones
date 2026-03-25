@@ -34,6 +34,11 @@ enum HotKeyAction: String, CaseIterable, Identifiable {
     case firstThird, centerThird, lastThird
     // Two-thirds
     case firstTwoThirds, centerTwoThirds, lastTwoThirds
+    // Fourths
+    case firstFourth, secondFourth, thirdFourth, lastFourth
+    // Sixths
+    case topLeftSixth, topCenterSixth, topRightSixth
+    case bottomLeftSixth, bottomCenterSixth, bottomRightSixth
     // Special
     case maximize, almostMaximize, maximizeHeight, center
     case makeSmaller, makeLarger, restore
@@ -60,6 +65,16 @@ enum HotKeyAction: String, CaseIterable, Identifiable {
         case .firstTwoThirds:     return "First Two Thirds"
         case .centerTwoThirds:    return "Center Two Thirds"
         case .lastTwoThirds:      return "Last Two Thirds"
+        case .firstFourth:        return "First Fourth"
+        case .secondFourth:       return "Second Fourth"
+        case .thirdFourth:        return "Third Fourth"
+        case .lastFourth:         return "Last Fourth"
+        case .topLeftSixth:       return "Top Left Sixth"
+        case .topCenterSixth:     return "Top Center Sixth"
+        case .topRightSixth:      return "Top Right Sixth"
+        case .bottomLeftSixth:    return "Bottom Left Sixth"
+        case .bottomCenterSixth:  return "Bottom Center Sixth"
+        case .bottomRightSixth:   return "Bottom Right Sixth"
         case .maximize:           return "Maximize"
         case .almostMaximize:     return "Almost Maximize"
         case .maximizeHeight:     return "Maximize Height"
@@ -83,6 +98,11 @@ enum HotKeyAction: String, CaseIterable, Identifiable {
             return "Thirds"
         case .firstTwoThirds, .centerTwoThirds, .lastTwoThirds:
             return "Two Thirds"
+        case .firstFourth, .secondFourth, .thirdFourth, .lastFourth:
+            return "Fourths"
+        case .topLeftSixth, .topCenterSixth, .topRightSixth,
+             .bottomLeftSixth, .bottomCenterSixth, .bottomRightSixth:
+            return "Sixths"
         case .maximize, .almostMaximize, .maximizeHeight, .center, .makeSmaller, .makeLarger, .restore:
             return "Special"
         case .nextMonitor, .prevMonitor, .cycleLayout:
@@ -108,6 +128,16 @@ enum HotKeyAction: String, CaseIterable, Identifiable {
         case .firstTwoThirds:     return .firstTwoThirds
         case .centerTwoThirds:    return .centerTwoThirds
         case .lastTwoThirds:      return .lastTwoThirds
+        case .firstFourth:        return .firstFourth
+        case .secondFourth:       return .secondFourth
+        case .thirdFourth:        return .thirdFourth
+        case .lastFourth:         return .lastFourth
+        case .topLeftSixth:       return .topLeftSixth
+        case .topCenterSixth:     return .topCenterSixth
+        case .topRightSixth:      return .topRightSixth
+        case .bottomLeftSixth:    return .bottomLeftSixth
+        case .bottomCenterSixth:  return .bottomCenterSixth
+        case .bottomRightSixth:   return .bottomRightSixth
         case .maximize:           return .maximize
         case .almostMaximize:     return .almostMaximize
         case .maximizeHeight:     return .maximizeHeight
@@ -142,6 +172,16 @@ enum HotKeyAction: String, CaseIterable, Identifiable {
         case .firstTwoThirds:     return HotKeyBinding(keyCode: UInt32(kVK_ANSI_E), modifiers: mods)
         case .centerTwoThirds:    return HotKeyBinding(keyCode: UInt32(kVK_ANSI_R), modifiers: mods)
         case .lastTwoThirds:      return HotKeyBinding(keyCode: UInt32(kVK_ANSI_T), modifiers: mods)
+        case .firstFourth:        return .none
+        case .secondFourth:       return .none
+        case .thirdFourth:        return .none
+        case .lastFourth:         return .none
+        case .topLeftSixth:       return .none
+        case .topCenterSixth:     return .none
+        case .topRightSixth:      return .none
+        case .bottomLeftSixth:    return .none
+        case .bottomCenterSixth:  return .none
+        case .bottomRightSixth:   return .none
         case .maximize:           return HotKeyBinding(keyCode: UInt32(kVK_Return), modifiers: mods)
         case .almostMaximize:     return .none
         case .maximizeHeight:     return HotKeyBinding(keyCode: UInt32(kVK_ANSI_H), modifiers: mods)

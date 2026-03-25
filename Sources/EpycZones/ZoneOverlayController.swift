@@ -30,7 +30,6 @@ final class ZoneOverlayController {
             panel.hasShadow = false
             panel.ignoresMouseEvents = true
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            NSLog("[EpycZones] Overlay panel created for screen: %@, frame: %@", screen.localizedName, NSStringFromRect(screen.frame))
 
             let view = ZoneOverlayNSView(
                 layout: layout,
@@ -97,7 +96,6 @@ final class ZoneOverlayNSView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         let isDark = AppSettings.shared.overlayIsDark
-        NSLog("[EpycZones] draw: isDark=%d, zones=%d, highlighted=%@", isDark ? 1 : 0, layout.zones.count, highlightedZoneIndices.description)
 
         // Background tint
         let bgColor = isDark
@@ -158,6 +156,45 @@ final class ZoneOverlayNSView: NSView {
                 x: rect.midX - labelSize.width / 2,
                 y: rect.midY - labelSize.height / 2
             ))
+        }
+
+        // Ghost preview: draw a translucent "window" outline over the combined highlighted zone area
+        if !highlightedZoneIndices.isEmpty {
+            let highlightedZones = highlightedZoneIndices.compactMap { idx -> Zone? in
+                idx < layout.zones.count ? layout.zones[idx] : nil
+            }
+            guard !highlightedZones.isEmpty else { return }
+
+            // Compute combined bounding rect
+            var minX = highlightedZones[0].rect.x
+            var minY = highlightedZones[0].rect.y
+            var maxX = minX + highlightedZones[0].rect.width
+            var maxY = minY + highlightedZones[0].rect.height
+            for z in highlightedZones.dropFirst() {
+                minX = min(minX, z.rect.x)
+                minY = min(minY, z.rect.y)
+                maxX = max(maxX, z.rect.x + z.rect.width)
+                maxY = max(maxY, z.rect.y + z.rect.height)
+            }
+
+            let ghostRect = NSRect(
+                x: vfLocal.origin.x + minX * vfLocal.width + gap + 4,
+                y: vfLocal.origin.y + (1.0 - minY - (maxY - minY)) * vfLocal.height + gap + 4,
+                width: (maxX - minX) * vfLocal.width - gap * 2 - 8,
+                height: (maxY - minY) * vfLocal.height - gap * 2 - 8
+            )
+
+            // Ghost window fill
+            NSColor.systemBlue.withAlphaComponent(0.12).setFill()
+            let ghostPath = NSBezierPath(roundedRect: ghostRect, xRadius: 8, yRadius: 8)
+            ghostPath.fill()
+
+            // Ghost window border (dashed)
+            NSColor.white.withAlphaComponent(0.6).setStroke()
+            ghostPath.lineWidth = 2
+            let pattern: [CGFloat] = [6, 4]
+            ghostPath.setLineDash(pattern, count: 2, phase: 0)
+            ghostPath.stroke()
         }
     }
 }

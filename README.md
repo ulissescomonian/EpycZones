@@ -1,79 +1,101 @@
-# EpycZones
+<p align="center">
+  <h1 align="center">EpycZones</h1>
+  <p align="center">
+    <strong>FancyZones for macOS</strong> — A powerful window manager with custom zone layouts, drag-to-snap, and multi-monitor support.
+  </p>
+  <p align="center">
+    <a href="https://github.com/ulissescomonian/EpycZones/releases/latest"><img src="https://img.shields.io/github/v/release/ulissescomonian/EpycZones?style=flat-square&color=blue" alt="Latest Release"></a>
+    <img src="https://img.shields.io/badge/macOS-14.0+-black?style=flat-square&logo=apple" alt="macOS 14+">
+    <img src="https://img.shields.io/badge/Swift-5.9-orange?style=flat-square&logo=swift" alt="Swift 5.9">
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/ulissescomonian/EpycZones?style=flat-square" alt="License"></a>
+  </p>
+</p>
 
-**FancyZones for macOS** — A powerful window manager with custom zone layouts, drag-to-snap, and multi-monitor support.
+---
 
-EpycZones brings the best features of Windows PowerToys FancyZones to macOS, letting you define custom screen zones and snap windows into them with keyboard shortcuts or by dragging with Shift held.
+EpycZones brings the best of Windows PowerToys [FancyZones](https://learn.microsoft.com/en-us/windows/powertoys/fancyzones) to macOS. Define custom screen zones, snap windows with keyboard shortcuts or Shift+Drag, and manage layouts across multiple monitors.
 
-### Layout Editor
-![Layout Editor](screenshots/editor.png)
+## Screenshots
 
-### Customizable Hotkeys
-![Hotkeys Settings](screenshots/hotkeys.png)
+<table>
+  <tr>
+    <td align="center"><strong>Layout Editor</strong></td>
+    <td align="center"><strong>Customizable Hotkeys</strong></td>
+    <td align="center"><strong>Menu Bar</strong></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/editor.png" width="400"></td>
+    <td><img src="screenshots/hotkeys.png" width="300"></td>
+    <td><img src="screenshots/menubar.png" width="180"></td>
+  </tr>
+</table>
 
-### Menu Bar
-![Menu Bar](screenshots/menubar.png)
+## Highlights
 
-## Features
-
-### Window Snapping
 - **30+ snap positions** — Halves, quarters, thirds, two-thirds, fourths, sixths, and more
-- **Shift + Drag** — Hold Shift while dragging a window to see zone overlay, release to snap
-- **Zone spanning** — Drag near the boundary of two zones to snap across both at once
-- **Edge snapping** — Optionally trigger zones by dragging to screen edges (configurable delay)
-- **Smooth animations** — Windows glide into position with ease-out cubic animation
-- **Restore** — Return a window to its previous position before snapping
-- **Resize** — Make windows incrementally smaller or larger
+- **Shift + Drag** — Visual zone overlay with ghost preview of target position
+- **Zone spanning** — Drag between two zones to snap across both at once
+- **Visual layout editor** — Drag corners and edges to create any arrangement you need
+- **Per-monitor layouts** — Different zones for each display
+- **Fully customizable hotkeys** — Rebind every shortcut in Settings
+- **Undo / Restore** — Return windows to their previous position
+- **Workspaces** — Save and restore entire window arrangements
+- **Lightweight** — Menu bar app, no Dock icon, ~1MB
 
-### Layout Editor
-- **Visual zone editor** — Drag to move zones, drag corners or edges to resize
-- **8 resize handles** — 4 corners + 4 edge midpoints for precise control
-- **Snap-to-grid toggle** — 24×24 grid for alignment, or free-form for pixel-perfect editing
-- **6 built-in templates** — 2 Columns, 3 Columns, 2 Rows, Grid 2×2, Priority Right, Focus Center
-- **Unlimited custom layouts** — Create as many layouts as you need
-- **Per-monitor layouts** — Assign different layouts to each connected display
+## Installation
 
-### Multi-Monitor
-- **Per-screen layout assignment** — Each monitor can have its own layout
-- **Move windows between monitors** — `⌃⌥N` / `⌃⌥P` to send windows to next/previous screen
-- **Proportional positioning** — Windows maintain their relative position when moving between screens
+### Download
 
-### Workspaces
-- **Save window arrangements** — Capture the current position of all windows as a named workspace
-- **Restore workspaces** — Instantly restore a saved arrangement with one click
-- **Window persistence** — Remembers which app was in which zone and restores on app launch
+Download the latest [DMG from Releases](https://github.com/ulissescomonian/EpycZones/releases/latest), open it, and drag EpycZones to your Applications folder.
 
-### Customization
-- **Customizable hotkeys** — Rebind any shortcut in Settings > Hotkeys
-- **Visual shortcut previews** — Each shortcut shows a mini icon of the target position
-- **Overlay themes** — Auto (follow system), Dark, or Light overlay appearance
-- **Configurable zone gaps** — 0–20px spacing between zones
-- **Edge snap with delay** — Adjustable trigger distance and delay to prevent accidental activation
-- **Cycle layouts** — `⌃⌥L` to quickly switch between layouts on the current screen
-- **Launch at Login** — Start EpycZones automatically with macOS
+### Build from Source
+
+```bash
+git clone https://github.com/ulissescomonian/EpycZones.git
+cd EpycZones
+make bundle    # Build + create .app bundle
+make run       # Build + run
+```
+
+Requires Xcode Command Line Tools and Swift 5.9+.
+
+### First Launch
+
+On first launch, macOS will ask for **Accessibility** permission. This is required to move and resize windows from other apps. Grant it in **System Settings > Privacy & Security > Accessibility**.
 
 ## Keyboard Shortcuts
 
-All shortcuts use **⌃⌥** (Ctrl+Option) as the default modifier. Every shortcut is rebindable in Settings > Hotkeys.
+All shortcuts use **⌃⌥** (Ctrl+Option) as the default modifier. Every shortcut is fully rebindable in **Settings > Hotkeys**.
 
-### Halves
+<details>
+<summary><strong>Halves</strong></summary>
+
 | Shortcut | Action |
-|---|---|
+|----------|--------|
 | `⌃⌥ ←` | Left Half |
 | `⌃⌥ →` | Right Half |
 | `⌃⌥ ↑` | Top Half |
 | `⌃⌥ ↓` | Bottom Half |
 
-### Quarters
+</details>
+
+<details>
+<summary><strong>Quarters</strong></summary>
+
 | Shortcut | Action |
-|---|---|
+|----------|--------|
 | `⌃⌥ U` | Top Left |
 | `⌃⌥ I` | Top Right |
 | `⌃⌥ J` | Bottom Left |
 | `⌃⌥ K` | Bottom Right |
 
-### Thirds & Two-Thirds
+</details>
+
+<details>
+<summary><strong>Thirds & Two-Thirds</strong></summary>
+
 | Shortcut | Action |
-|---|---|
+|----------|--------|
 | `⌃⌥ D` | First Third |
 | `⌃⌥ F` | Center Third |
 | `⌃⌥ G` | Last Third |
@@ -81,110 +103,104 @@ All shortcuts use **⌃⌥** (Ctrl+Option) as the default modifier. Every shortc
 | `⌃⌥ R` | Center Two Thirds |
 | `⌃⌥ T` | Last Two Thirds |
 
-### Special
+</details>
+
+<details>
+<summary><strong>Special & Navigation</strong></summary>
+
 | Shortcut | Action |
-|---|---|
+|----------|--------|
 | `⌃⌥ Enter` | Maximize |
 | `⌃⌥ H` | Maximize Height |
-| `⌃⌥ C` | Center (60% × 80%) |
+| `⌃⌥ C` | Center |
 | `⌃⌥ -` | Make Smaller |
 | `⌃⌥ =` | Make Larger |
 | `⌃⌥ ⌫` | Restore previous position |
+| `⌃⌥ N` | Next monitor |
+| `⌃⌥ P` | Previous monitor |
+| `⌃⌥ L` | Cycle layout |
+| `⌃⌥ 1-9` | Snap to zone 1–9 |
+| `Shift + Drag` | Drag to zone overlay |
 
-### Navigation
-| Shortcut | Action |
-|---|---|
-| `⌃⌥ N` | Move window to next monitor |
-| `⌃⌥ P` | Move window to previous monitor |
-| `⌃⌥ L` | Cycle to next layout |
-| `⌃⌥ 1-9` | Snap to zone 1–9 of active layout |
-| `Shift + Drag` | Drag window to zone overlay |
+</details>
 
-## Requirements
+Fourths and sixths are available as snap positions and can be assigned to custom shortcuts in Settings.
 
-- **macOS 14.0** (Sonoma) or later
-- **Accessibility permission** — Required to move and resize windows from other apps
+## Features in Detail
 
-## Build & Run
+### Shift + Drag Snapping
 
-```bash
-# Clone the repository
-git clone https://github.com/ulissescomonian/EpycZones.git
-cd EpycZones
+Hold **Shift** while dragging any window to reveal the zone overlay. Move to a zone and release — the window snaps into place with a smooth animation. A ghost preview shows exactly where the window will land.
 
-# Build and create .app bundle
-make bundle
+Drag near the **boundary between two zones** to span both at once. At the **center of four zones**, all four highlight for a fullscreen snap.
 
-# Run
-make run
-```
+### Layout Editor
 
-### Build Requirements
+Create custom layouts visually. Each zone can be moved and resized freely with **8 handles** (4 corners + 4 edge midpoints). Toggle **Snap to Grid** for precise alignment or disable it for free-form editing.
 
-- Xcode Command Line Tools (`xcode-select --install`)
-- Swift 5.9+
+Six built-in templates are included: 2 Columns, 3 Columns, 2 Rows, Grid 2×2, Priority Right, and Focus Center.
 
-### Development
+### Multi-Monitor
 
-```bash
-# Debug build (faster compilation)
-make debug
+Assign a **different layout** to each connected display. Move windows between monitors with `⌃⌥N` / `⌃⌥P` — windows maintain their relative position and size when crossing screens.
 
-# Clean build artifacts
-make clean
-```
+### Settings
+
+| Tab | What it does |
+|-----|-------------|
+| **General** | Launch at Login, animation toggle, overlay theme (Auto/Dark/Light) |
+| **Snapping** | Zone gaps (0–20px), edge snap toggle with trigger distance and delay |
+| **Hotkeys** | Visual preview + rebindable shortcut for every action |
+| **Workspaces** | Save, restore, and manage complete window arrangements |
+
+## How It Works
+
+EpycZones runs as a **menu bar app** (no Dock icon). Under the hood:
+
+| Component | Technology |
+|-----------|-----------|
+| Window control | Accessibility API (`AXUIElement`) |
+| Drag detection | `NSEvent` global + local monitors |
+| Keyboard shortcuts | Carbon `RegisterEventHotKey` |
+| Zone overlay | `NSPanel` (transparent, floating) |
+| Editor & Settings | SwiftUI |
+| Persistence | JSON files + UserDefaults |
 
 ## Project Structure
 
 ```
-EpycZones/
-├── Package.swift                           # Swift Package Manager config
-├── Makefile                                # Build & bundle automation
-├── Resources/
-│   ├── Info.plist                          # App bundle configuration
-│   └── AppIcon.icns                       # App icon
-└── Sources/EpycZones/
-    ├── EpycZonesApp.swift                  # App entry point + menu bar
-    ├── AppDelegate.swift                   # App lifecycle + setup
-    ├── AppSettings.swift                   # User preferences
-    │
-    ├── Zone.swift                          # Zone model + RelativeRect
-    ├── Layout.swift                        # Layout model + templates
-    ├── LayoutStore.swift                   # Layout persistence + per-screen assignments
-    ├── SnapPosition.swift                  # 30+ built-in snap positions
-    ├── HotKeyBinding.swift                 # Hotkey model + action definitions
-    │
-    ├── WindowManager.swift                 # AXUIElement window control
-    ├── WindowAnimator.swift                # Smooth snap animations
-    ├── WindowPersistence.swift             # Remember window-zone assignments
-    ├── WorkspaceManager.swift              # Save/restore complete workspaces
-    │
-    ├── DragDetector.swift                  # Shift+drag detection (NSEvent monitors)
-    ├── ZoneOverlayController.swift         # Transparent overlay panels
-    ├── LayoutNotification.swift            # HUD notification
-    │
-    ├── HotKeyManager.swift                 # Carbon global hotkeys
-    ├── AccessibilityChecker.swift          # Accessibility permission handling
-    │
-    ├── LayoutEditorView.swift              # Visual layout editor (SwiftUI)
-    ├── ZoneCanvasView.swift                # Interactive zone canvas
-    └── SettingsView.swift                  # Settings UI (4 tabs)
+Sources/EpycZones/
+├── EpycZonesApp.swift          # Entry point + menu bar UI
+├── AppDelegate.swift           # Lifecycle + permissions
+├── AppSettings.swift           # User preferences
+│
+├── Zone.swift                  # Zone model (RelativeRect)
+├── Layout.swift                # Layout model + 6 templates
+├── LayoutStore.swift           # Persistence + per-screen mapping
+├── SnapPosition.swift          # 30+ built-in positions
+├── HotKeyBinding.swift         # Hotkey model + action registry
+│
+├── WindowManager.swift         # Move/resize via Accessibility API
+├── WindowAnimator.swift        # Smooth easeOutCubic animation
+├── WindowPersistence.swift     # Window → zone memory
+├── WorkspaceManager.swift      # Save/restore workspaces
+│
+├── DragDetector.swift          # Shift+drag + edge snap
+├── ZoneOverlayController.swift # Overlay panels + ghost preview
+├── LayoutNotification.swift    # HUD notifications
+│
+├── HotKeyManager.swift         # Carbon hotkey registration
+├── AccessibilityChecker.swift  # Permission handling
+│
+├── LayoutEditorView.swift      # Visual editor (SwiftUI)
+├── ZoneCanvasView.swift        # Interactive canvas
+└── SettingsView.swift          # 4-tab settings window
 ```
-
-## How It Works
-
-EpycZones runs as a **menu bar app** (no Dock icon). It uses:
-
-- **Accessibility API** (`AXUIElement`) to move and resize windows from other apps
-- **NSEvent global/local monitors** to detect Shift+drag without intercepting system events
-- **Carbon `RegisterEventHotKey`** for global keyboard shortcuts (fully customizable)
-- **SwiftUI** for the layout editor, settings, and menu bar preview
-- **AppKit** (`NSPanel`) for transparent zone overlays with dark/light theme support
 
 ## Acknowledgments
 
-- Inspired by [FancyZones](https://learn.microsoft.com/en-us/windows/powertoys/fancyzones) from Microsoft PowerToys
+Inspired by [FancyZones](https://learn.microsoft.com/en-us/windows/powertoys/fancyzones) from Microsoft PowerToys.
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+[MIT License](LICENSE) — free to use, modify, and distribute.

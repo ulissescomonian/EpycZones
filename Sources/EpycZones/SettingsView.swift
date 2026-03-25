@@ -88,7 +88,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
 
                 let categories = Dictionary(grouping: HotKeyAction.allCases, by: \.category)
-                let order = ["Halves", "Quarters", "Thirds", "Two Thirds", "Special", "Navigation"]
+                let order = ["Halves", "Quarters", "Thirds", "Two Thirds", "Fourths", "Sixths", "Special", "Navigation"]
 
                 ForEach(order, id: \.self) { cat in
                     if let actions = categories[cat] {

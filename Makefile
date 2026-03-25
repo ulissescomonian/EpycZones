@@ -2,7 +2,7 @@ APP_NAME = EpycZones
 BUILD_DIR = .build/release
 APP_BUNDLE = $(APP_NAME).app
 
-.PHONY: build bundle run clean debug
+.PHONY: build bundle run clean debug dmg
 
 # Release build
 build:
@@ -28,7 +28,11 @@ bundle: build
 run: bundle
 	open $(APP_BUNDLE)
 
+# Create DMG installer
+dmg: bundle
+	./scripts/create-dmg.sh
+
 # Clean build artifacts
 clean:
 	swift package clean
-	rm -rf $(APP_BUNDLE)
+	rm -rf $(APP_BUNDLE) $(APP_NAME).dmg
