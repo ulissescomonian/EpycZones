@@ -33,7 +33,7 @@ EpycZones brings the best of Windows PowerToys [FancyZones](https://learn.micros
 ## Highlights
 
 - **30+ snap positions** — Halves, quarters, thirds, two-thirds, fourths, sixths, and more
-- **Shift + Drag** — Visual zone overlay with ghost preview of target position
+- **Shift + Drag** — Visual zone overlay with ghost preview; instant snap on release
 - **Zone spanning** — Drag between two zones to snap across both at once
 - **Visual layout editor** — Drag corners and edges to create any arrangement you need
 - **Per-monitor layouts** — Different zones for each display
@@ -118,7 +118,7 @@ Fourths and sixths are available as snap positions and can be assigned to custom
 
 ### Shift + Drag Snapping
 
-Hold **Shift** while dragging any window to reveal the zone overlay. Move to a zone and release — the window snaps into place with a smooth animation. A ghost preview shows exactly where the window will land.
+Hold **Shift** while dragging any window to reveal the zone overlay. Move to a zone and release — the window snaps instantly into place. A ghost preview shows exactly where the window will land.
 
 Drag near the **boundary between two zones** to span both at once. At the **center of four zones**, all four highlight for a fullscreen snap.
 
@@ -136,7 +136,7 @@ Assign a **different layout** to each connected display. Move windows between mo
 
 | Tab | What it does |
 |-----|-------------|
-| **General** | Launch at Login, animation toggle, overlay theme (Auto/Dark/Light) |
+| **General** | Launch at Login, snap animation (hotkeys only), overlay theme (Auto/Dark/Light) |
 | **Snapping** | Zone gaps (0–20px), edge snap toggle with trigger distance and delay |
 | **Hotkeys** | Visual preview + rebindable shortcut for every action |
 | **Workspaces** | Save, restore, and manage complete window arrangements |
@@ -147,7 +147,7 @@ EpycZones runs as a **menu bar app** (no Dock icon). Under the hood:
 
 | Component | Technology |
 |-----------|-----------|
-| Window control | Accessibility API (`AXUIElement`) |
+| Window control | Accessibility API (`AXUIElement`) with SIZE→POSITION→SIZE pattern |
 | Drag detection | `NSEvent` global + local monitors |
 | Keyboard shortcuts | Carbon `RegisterEventHotKey` |
 | Zone overlay | `NSPanel` (transparent, floating) |
