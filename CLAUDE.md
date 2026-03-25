@@ -60,5 +60,10 @@ Settings in UserDefaults (standard domain).
 - **Activation policy toggle**: App is `.accessory` normally but switches to `.regular` when LayoutEditorView appears (so the window shows in Cmd+Tab), reverts on disappear.
 - **Drag window capture**: `draggedWindow` is captured at drag start via AX API. If captured after overlay panels appear, the focused app may have changed.
 - **Edge snap timer**: Configurable delay (0.1–1.0s) before overlay appears when dragging near screen edges without Shift.
-- **Window animation**: 8 steps over 0.15s on `DispatchQueue.global(qos: .userInteractive)` with easeOutCubic. Falls back to instant snap if current frame unreadable.
+- **Window animation**: 8 steps over 0.15s via `DispatchQueue.main.asyncAfter` with easeOutCubic. All AX calls MUST be on main thread (macOS Tahoe crashes otherwise). Falls back to instant snap if current frame unreadable.
+- **Hotkey recording**: When recording a new shortcut in Settings, `HotKeyManager.unregisterAll()` is called first so Carbon hotkeys don't intercept the key press. After recording (or Esc to cancel), `reloadHotKeys()` re-registers everything.
+- **Dynamic snap positions**: `makeSmaller`, `makeLarger`, `restore`, `maximizeHeight` need the current window frame. `WindowManager` handles these specially instead of using `SnapPosition.frame(in:)`.
+- **Restore**: `WindowManager.previousFrames` dictionary stores the frame before each snap operation, keyed by PID+title hash. `restore` retrieves and applies the saved frame.
+- **Zone spanning**: DragDetector finds adjacent zones within ~20px of cursor from primary zone boundary, checking perpendicular axis overlap. Picks the closest single neighbor, plus diagonal neighbors of direct neighbors (for 4-zone center selection).
+- **Move between Spaces**: NOT implemented. Private CGS APIs (`CGSMoveWindowsToManagedSpace`, `CGSAddWindowsToSpaces`) are unreliable on macOS Tahoe, and programmatic Space switching is blocked by macOS security (CGEvent simulation of Ctrl+Arrow doesn't trigger Space transitions).
 - **Dark mode detection**: `NSApp.effectiveAppearance` is unreliable for accessory apps. Uses `UserDefaults["AppleInterfaceStyle"] == "Dark"` instead.
