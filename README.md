@@ -4,12 +4,14 @@
 
 EpycZones brings the best features of Windows PowerToys FancyZones to macOS, letting you define custom screen zones and snap windows into them with keyboard shortcuts or by dragging with Shift held.
 
-<!--
-To add screenshots, save them in the `screenshots/` folder:
-- screenshots/editor.png (Layout Editor window)
-- screenshots/overlay.png (Zone overlay during Shift+drag)
-- screenshots/settings.png (Settings window)
--->
+### Layout Editor
+![Layout Editor](screenshots/editor.png)
+
+### Customizable Hotkeys
+![Hotkeys Settings](screenshots/hotkeys.png)
+
+### Menu Bar
+![Menu Bar](screenshots/menubar.png)
 
 ## Features
 
