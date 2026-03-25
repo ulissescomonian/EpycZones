@@ -3,6 +3,9 @@ import ApplicationServices
 
 enum WindowManager {
 
+    /// Stores previous window frames for "Restore" functionality. Key = window hash.
+    private static var previousFrames: [Int: CGRect] = [:]
+
     // MARK: - Public
 
     static func snap(to position: SnapPosition) {
@@ -11,8 +14,29 @@ enum WindowManager {
 
         let screen = screenForWindow(window) ?? NSScreen.main ?? NSScreen.screens[0]
         let visibleFrame = screen.visibleFrame
-        let targetNS = position.frame(in: visibleFrame)
 
+        // Handle dynamic positions
+        switch position {
+        case .restore:
+            restoreWindow(window, screen: screen)
+            return
+        case .makeSmaller:
+            resizeWindow(window, screen: screen, factor: 0.9)
+            return
+        case .makeLarger:
+            resizeWindow(window, screen: screen, factor: 1.1)
+            return
+        case .maximizeHeight:
+            maximizeHeight(window, screen: screen)
+            return
+        default:
+            break
+        }
+
+        // Save current frame for restore
+        saveFrame(of: window)
+
+        let targetNS = position.frame(in: visibleFrame)
         applyFrame(targetNS, to: window)
     }
 
@@ -21,14 +45,12 @@ enum WindowManager {
         guard let window = getFocusedWindow() else { return }
 
         let screen = screenForWindow(window) ?? NSScreen.main ?? NSScreen.screens[0]
-        let visibleFrame = screen.visibleFrame
+        saveFrame(of: window)
         let gap = AppSettings.shared.zoneGap
-        let targetNS = zone.rect.frame(in: visibleFrame, gap: gap)
-
+        let targetNS = zone.rect.frame(in: screen.visibleFrame, gap: gap)
         applyFrame(targetNS, to: window)
     }
 
-    /// Snap to the Nth zone (0-indexed) of the active layout for the focused window's screen.
     static func snapToActiveZone(index: Int) {
         guard AccessibilityChecker.isGranted else { return }
         guard let window = getFocusedWindow() else { return }
@@ -37,21 +59,88 @@ enum WindowManager {
         guard let layout = LayoutStore.shared.activeLayout(for: screen),
               index < layout.zones.count else { return }
 
+        saveFrame(of: window)
         let gap = AppSettings.shared.zoneGap
         let targetNS = layout.zones[index].rect.frame(in: screen.visibleFrame, gap: gap)
         applyFrame(targetNS, to: window)
         WindowPersistence.record(window: window, zoneIndex: index, screen: screen, layoutID: layout.id)
     }
 
+    // MARK: - Dynamic Positions
+
+    private static func restoreWindow(_ window: AXUIElement, screen: NSScreen) {
+        let key = windowHash(window)
+        if let prev = previousFrames[key] {
+            previousFrames.removeValue(forKey: key)
+            applyFrame(prev, to: window)
+        }
+    }
+
+    private static func resizeWindow(_ window: AXUIElement, screen: NSScreen, factor: Double) {
+        guard let axPos = getPosition(of: window),
+              let axSize = getSize(of: window) else { return }
+
+        let primaryHeight = NSScreen.screens[0].frame.height
+        let nsX = axPos.x
+        let nsY = primaryHeight - axPos.y - axSize.height
+
+        let newW = axSize.width * factor
+        let newH = axSize.height * factor
+        // Keep centered
+        let newX = nsX - (newW - axSize.width) / 2
+        let newY = nsY - (newH - axSize.height) / 2
+
+        let targetNS = CGRect(x: newX, y: newY, width: newW, height: newH)
+        applyFrame(targetNS, to: window)
+    }
+
+    private static func maximizeHeight(_ window: AXUIElement, screen: NSScreen) {
+        guard let axPos = getPosition(of: window),
+              let axSize = getSize(of: window) else { return }
+
+        saveFrame(of: window)
+        let vf = screen.visibleFrame
+
+        // Keep X and width, maximize height to visible frame
+        let targetNS = CGRect(
+            x: axPos.x,
+            y: vf.origin.y,
+            width: axSize.width,
+            height: vf.height
+        )
+        applyFrame(targetNS, to: window)
+    }
+
+    private static func saveFrame(of window: AXUIElement) {
+        guard let axPos = getPosition(of: window),
+              let axSize = getSize(of: window) else { return }
+        let primaryHeight = NSScreen.screens[0].frame.height
+        let nsFrame = CGRect(
+            x: axPos.x,
+            y: primaryHeight - axPos.y - axSize.height,
+            width: axSize.width,
+            height: axSize.height
+        )
+        previousFrames[windowHash(window)] = nsFrame
+    }
+
+    private static func windowHash(_ window: AXUIElement) -> Int {
+        var pid: pid_t = 0
+        AXUIElementGetPid(window, &pid)
+        // Combine PID with window title for uniqueness
+        var title: AnyObject?
+        AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &title)
+        let titleStr = (title as? String) ?? ""
+        var hasher = Hasher()
+        hasher.combine(pid)
+        hasher.combine(titleStr)
+        return hasher.finalize()
+    }
+
     // MARK: - Move Between Monitors
 
-    static func moveToNextScreen() {
-        moveToScreen(offset: 1)
-    }
-
-    static func moveToPreviousScreen() {
-        moveToScreen(offset: -1)
-    }
+    static func moveToNextScreen() { moveToScreen(offset: 1) }
+    static func moveToPreviousScreen() { moveToScreen(offset: -1) }
 
     private static func moveToScreen(offset: Int) {
         guard AccessibilityChecker.isGranted else { return }
@@ -68,39 +157,34 @@ enum WindowManager {
         guard let axPos = getPosition(of: window),
               let axSize = getSize(of: window) else { return }
 
-        // Convert current window rect to relative position within source screen's visibleFrame
         let primaryHeight = screens[0].frame.height
         let srcVF = currentScreen.visibleFrame
         let dstVF = targetScreen.visibleFrame
 
-        // AX to NS coords for the window origin
         let nsX = axPos.x
         let nsY = primaryHeight - axPos.y - axSize.height
 
-        // Relative position within source visible frame
         let relX = (nsX - srcVF.origin.x) / srcVF.width
         let relY = (nsY - srcVF.origin.y) / srcVF.height
         let relW = axSize.width / srcVF.width
         let relH = axSize.height / srcVF.height
 
-        // Apply relative position to target visible frame
         let targetNS = CGRect(
             x: dstVF.origin.x + relX * dstVF.width,
             y: dstVF.origin.y + relY * dstVF.height,
             width: relW * dstVF.width,
             height: relH * dstVF.height
         )
-
         applyFrame(targetNS, to: window)
     }
 
+
     // MARK: - Apply
 
-    private static func applyFrame(_ targetNS: CGRect, to window: AXUIElement, animated: Bool = true) {
-        if animated {
-            DispatchQueue.global(qos: .userInteractive).async {
-                WindowAnimator.animate(window: window, to: targetNS)
-            }
+    static func applyFrame(_ targetNS: CGRect, to window: AXUIElement, animated: Bool = true) {
+        if animated && AppSettings.shared.animateSnap {
+            // WindowAnimator handles main-thread dispatch internally
+            WindowAnimator.animate(window: window, to: targetNS)
         } else {
             let primaryHeight = NSScreen.screens[0].frame.height
             setPosition(of: window, to: CGPoint(x: targetNS.origin.x, y: primaryHeight - targetNS.origin.y - targetNS.height))

@@ -49,6 +49,50 @@ enum LayoutNotification {
             }
         }
     }
+
+    /// Show a custom text notification (e.g. for Space moves).
+    static func show(text: String) {
+        guard let screen = NSScreen.main else { return }
+
+        hideTimer?.invalidate()
+
+        let width: CGFloat = 320
+        let height: CGFloat = 50
+        let x = screen.frame.midX - width / 2
+        let y = screen.frame.midY - height / 2 + screen.frame.height * 0.25
+
+        let p = panel ?? {
+            let newPanel = NSPanel(
+                contentRect: .zero,
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            newPanel.level = .floating
+            newPanel.backgroundColor = .clear
+            newPanel.isOpaque = false
+            newPanel.hasShadow = false
+            newPanel.ignoresMouseEvents = true
+            newPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            panel = newPanel
+            return newPanel
+        }()
+
+        let view = SimpleNotificationView(text: text)
+        p.contentView = view
+        p.setFrame(NSRect(x: x, y: y, width: width, height: height), display: true)
+        p.orderFrontRegardless()
+        p.alphaValue = 1.0
+
+        hideTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { _ in
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.3
+                p.animator().alphaValue = 0
+            } completionHandler: {
+                p.orderOut(nil)
+            }
+        }
+    }
 }
 
 private class LayoutNotificationView: NSView {
@@ -64,12 +108,10 @@ private class LayoutNotificationView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     override func draw(_ dirtyRect: NSRect) {
-        // Rounded dark background
         let bg = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 14, yRadius: 14)
         NSColor.black.withAlphaComponent(0.75).setFill()
         bg.fill()
 
-        // Layout name
         let nameAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 18, weight: .semibold),
             .foregroundColor: NSColor.white,
@@ -77,7 +119,6 @@ private class LayoutNotificationView: NSView {
         let nameStr = NSAttributedString(string: name, attributes: nameAttrs)
         let nameSize = nameStr.size()
 
-        // Zone count
         let countAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 12, weight: .regular),
             .foregroundColor: NSColor.white.withAlphaComponent(0.6),
@@ -91,5 +132,30 @@ private class LayoutNotificationView: NSView {
 
         nameStr.draw(at: NSPoint(x: bounds.midX - nameSize.width / 2, y: nameY))
         countStr.draw(at: NSPoint(x: bounds.midX - countSize.width / 2, y: countY))
+    }
+}
+
+private class SimpleNotificationView: NSView {
+    let text: String
+
+    init(text: String) {
+        self.text = text
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let bg = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 14, yRadius: 14)
+        NSColor.black.withAlphaComponent(0.75).setFill()
+        bg.fill()
+
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 15, weight: .medium),
+            .foregroundColor: NSColor.white,
+        ]
+        let str = NSAttributedString(string: text, attributes: attrs)
+        let size = str.size()
+        str.draw(at: NSPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2))
     }
 }

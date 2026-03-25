@@ -125,12 +125,12 @@ struct MenuBarView: View {
         Button {
             WindowManager.snap(to: position)
         } label: {
-            HStack {
+            HStack(spacing: 8) {
+                // Visual preview
+                SnapPreviewIcon(rect: position.previewRect)
+                    .frame(width: 20, height: 14)
                 Text(position.displayName)
                 Spacer()
-                Text(position.shortcutHint)
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
             }
         }
     }

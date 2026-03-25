@@ -68,46 +68,43 @@ final class HotKeyManager {
 
     /// Register all hotkeys using resolved (custom or default) bindings.
     func registerDefaults() {
-        // Map HotKeyActions to SnapPositions
-        let snapActions: [HotKeyAction: SnapPosition] = [
-            .leftHalf: .leftHalf, .rightHalf: .rightHalf,
-            .topHalf: .topHalf, .bottomHalf: .bottomHalf,
-            .topLeftQuarter: .topLeftQuarter, .topRightQuarter: .topRightQuarter,
-            .bottomLeftQuarter: .bottomLeftQuarter, .bottomRightQuarter: .bottomRightQuarter,
-            .maximize: .maximize, .center: .center,
-        ]
-
-        for (action, position) in snapActions {
+        for action in HotKeyAction.allCases {
             let b = resolvedBinding(for: action)
-            register(keyCode: b.keyCode, modifiers: b.modifiers, position: position)
-        }
+            guard !b.isNone else { continue }
 
-        // Move between monitors
-        let nextMon = resolvedBinding(for: .nextMonitor)
-        register(keyCode: nextMon.keyCode, modifiers: nextMon.modifiers) {
-            WindowManager.moveToNextScreen()
-        }
-        let prevMon = resolvedBinding(for: .prevMonitor)
-        register(keyCode: prevMon.keyCode, modifiers: prevMon.modifiers) {
-            WindowManager.moveToPreviousScreen()
-        }
-
-        // Cycle layouts
-        let cycle = resolvedBinding(for: .cycleLayout)
-        register(keyCode: cycle.keyCode, modifiers: cycle.modifiers) {
-            LayoutStore.shared.cycleLayout()
-            LayoutNotification.show()
+            if let position = action.snapPosition {
+                register(keyCode: b.keyCode, modifiers: b.modifiers, position: position)
+            } else {
+                // Navigation actions
+                switch action {
+                case .nextMonitor:
+                    register(keyCode: b.keyCode, modifiers: b.modifiers) { WindowManager.moveToNextScreen() }
+                case .prevMonitor:
+                    register(keyCode: b.keyCode, modifiers: b.modifiers) { WindowManager.moveToPreviousScreen() }
+                case .cycleLayout:
+                    register(keyCode: b.keyCode, modifiers: b.modifiers) {
+                        LayoutStore.shared.cycleLayout()
+                        LayoutNotification.show()
+                    }
+                default: break
+                }
+            }
         }
     }
 
-    /// Unregister all hotkeys and re-register with current settings.
-    func reloadHotKeys() {
+    /// Temporarily unregister all hotkeys (e.g. during shortcut recording).
+    func unregisterAll() {
         for ref in hotKeyRefs {
             UnregisterEventHotKey(ref)
         }
         hotKeyRefs.removeAll()
         handlers.removeAll()
         nextID = 1
+    }
+
+    /// Unregister all hotkeys and re-register with current settings.
+    func reloadHotKeys() {
+        unregisterAll()
         registerDefaults()
         registerZoneHotKeys()
     }
@@ -148,6 +145,8 @@ final class HotKeyManager {
 
         if status == noErr, let ref = ref {
             hotKeyRefs.append(ref)
+        } else {
+            NSLog("[EpycZones] FAILED to register hotkey: keyCode=%d, mods=%d, status=%d", keyCode, modifiers, status)
         }
     }
 

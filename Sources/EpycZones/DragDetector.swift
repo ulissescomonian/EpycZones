@@ -179,9 +179,7 @@ final class DragDetector {
         let gap = AppSettings.shared.zoneGap
         let combined = combinedRect(of: zones)
         let targetNS = combined.frame(in: screen.visibleFrame, gap: gap)
-        DispatchQueue.global(qos: .userInteractive).async {
-            WindowAnimator.animate(window: window, to: targetNS)
-        }
+        WindowAnimator.animate(window: window, to: targetNS)
     }
 
     /// Compute bounding RelativeRect that encompasses all given zones.
@@ -276,13 +274,20 @@ final class DragDetector {
 
         guard let primary = exactHit else { return ([], screen) }
 
-        // Check if cursor is near the edge of the primary zone — if so, find the ONE closest adjacent zone.
-        // Only consider zones that share an actual border segment (overlap on the perpendicular axis).
+        // Find all adjacent zones that share a border with the primary zone near the cursor.
+        // This allows selecting 2 zones (edge), 3 zones (T-junction), or all 4 (center of grid).
         var result: Set<Int> = [primary]
         let pz = layout.zones[primary].rect
 
-        var bestCandidate: Int?
-        var bestDistance = Double.infinity
+        // Is cursor near each edge of the primary zone?
+        let nearRight  = abs(relX - (pz.x + pz.width))  < threshold
+        let nearLeft   = abs(relX - pz.x)               < threshold
+        let nearBottom = abs(relY - (pz.y + pz.height)) < threshold
+        let nearTop    = abs(relY - pz.y)               < threshold
+
+        guard nearRight || nearLeft || nearBottom || nearTop else {
+            return (result, screen)
+        }
 
         for (index, zone) in layout.zones.enumerated() where index != primary {
             let r = zone.rect
@@ -292,33 +297,45 @@ final class DragDetector {
             // Check horizontal shared edge (top/bottom) — zones must overlap on X axis
             let xOverlap = max(0, min(pz.x + pz.width, r.x + r.width) - max(pz.x, r.x))
 
-            var edgeDist = Double.infinity
+            let isAdjacent =
+                // Right edge: cursor near right of primary & zone starts there
+                (nearRight  && yOverlap > 0.01 && abs(r.x - (pz.x + pz.width)) < threshold) ||
+                // Left edge: cursor near left of primary & zone ends there
+                (nearLeft   && yOverlap > 0.01 && abs((r.x + r.width) - pz.x) < threshold) ||
+                // Bottom edge: cursor near bottom of primary & zone starts there
+                (nearBottom && xOverlap > 0.01 && abs(r.y - (pz.y + pz.height)) < threshold) ||
+                // Top edge: cursor near top of primary & zone ends there
+                (nearTop    && xOverlap > 0.01 && abs((r.y + r.height) - pz.y) < threshold)
 
-            // Cursor near right edge of primary & zone starts there (zones share a vertical edge)
-            if yOverlap > 0.01 && abs(r.x - (pz.x + pz.width)) < threshold {
-                edgeDist = min(edgeDist, abs(relX - (pz.x + pz.width)))
-            }
-            // Cursor near left edge of primary & zone ends there
-            if yOverlap > 0.01 && abs((r.x + r.width) - pz.x) < threshold {
-                edgeDist = min(edgeDist, abs(relX - pz.x))
-            }
-            // Cursor near bottom edge of primary & zone starts there (zones share a horizontal edge)
-            if xOverlap > 0.01 && abs(r.y - (pz.y + pz.height)) < threshold {
-                edgeDist = min(edgeDist, abs(relY - (pz.y + pz.height)))
-            }
-            // Cursor near top edge of primary & zone ends there
-            if xOverlap > 0.01 && abs((r.y + r.height) - pz.y) < threshold {
-                edgeDist = min(edgeDist, abs(relY - pz.y))
-            }
-
-            if edgeDist < threshold && edgeDist < bestDistance {
-                bestDistance = edgeDist
-                bestCandidate = index
+            if isAdjacent {
+                result.insert(index)
             }
         }
 
-        if let candidate = bestCandidate {
-            result.insert(candidate)
+        // If we found adjacent zones, also check if THEIR neighbors should be included.
+        // E.g., in a 2x2 grid at the center: primary=topLeft finds right+bottom adjacent,
+        // but the diagonal (bottomRight) is adjacent to both of those, not directly to primary.
+        if result.count > 1 {
+            let directAdjacent = result.subtracting([primary])
+            for adjIdx in directAdjacent {
+                let az = layout.zones[adjIdx].rect
+                for (index, zone) in layout.zones.enumerated() where !result.contains(index) {
+                    let r = zone.rect
+                    // Check if this zone shares a border with the adjacent zone near the cursor
+                    let yOvr = max(0, min(az.y + az.height, r.y + r.height) - max(az.y, r.y))
+                    let xOvr = max(0, min(az.x + az.width, r.x + r.width) - max(az.x, r.x))
+
+                    let isDiagonal =
+                        (nearRight  && yOvr > 0.01 && abs(r.x - (az.x + az.width)) < threshold) ||
+                        (nearLeft   && yOvr > 0.01 && abs((r.x + r.width) - az.x) < threshold) ||
+                        (nearBottom && xOvr > 0.01 && abs(r.y - (az.y + az.height)) < threshold) ||
+                        (nearTop    && xOvr > 0.01 && abs((r.y + r.height) - az.y) < threshold)
+
+                    if isDiagonal {
+                        result.insert(index)
+                    }
+                }
+            }
         }
 
         return (result, screen)

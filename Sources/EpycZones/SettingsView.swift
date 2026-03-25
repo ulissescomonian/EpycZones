@@ -6,6 +6,7 @@ struct SettingsView: View {
     @State private var workspaces = WorkspaceManager.loadAll()
     @State private var newWorkspaceName = ""
     @State private var recordingAction: HotKeyAction?
+    @State private var keyMonitor: Any?
 
     var body: some View {
         TabView {
@@ -18,7 +19,7 @@ struct SettingsView: View {
             workspacesTab
                 .tabItem { Label("Workspaces", systemImage: "square.stack.3d.up") }
         }
-        .frame(width: 480, height: 400)
+        .frame(minWidth: 520, minHeight: 500)
         .padding()
     }
 
@@ -38,6 +39,7 @@ struct SettingsView: View {
                 .pickerStyle(.radioGroup)
             }
         }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     // MARK: - Snapping
@@ -73,36 +75,51 @@ struct SettingsView: View {
                 }
             }
         }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     // MARK: - Hotkeys
 
     private var hotkeysTab: some View {
-        Form {
-            Section("Keyboard Shortcuts") {
-                Text("Click a shortcut and press new keys to rebind. Shift+Drag is always active.")
+        ScrollView {
+            Form {
+                Text("Click a shortcut and press new keys to rebind.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
-                    ForEach(HotKeyAction.allCases) { action in
-                        GridRow {
-                            Text(action.displayName)
-                                .frame(width: 120, alignment: .trailing)
+                let categories = Dictionary(grouping: HotKeyAction.allCases, by: \.category)
+                let order = ["Halves", "Quarters", "Thirds", "Two Thirds", "Special", "Navigation"]
 
-                            hotkeyButton(for: action)
-                                .frame(width: 100)
+                ForEach(order, id: \.self) { cat in
+                    if let actions = categories[cat] {
+                        Section(cat) {
+                            ForEach(actions) { action in
+                                HStack(spacing: 10) {
+                                    // Visual preview icon
+                                    SnapPreviewIcon(rect: action.previewRect)
+                                        .frame(width: 28, height: 20)
+
+                                    Text(action.displayName)
+                                        .frame(width: 130, alignment: .leading)
+
+                                    Spacer()
+
+                                    hotkeyButton(for: action)
+                                        .frame(width: 100)
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            Section {
-                Button("Reset All to Defaults") {
-                    settings.customHotKeys = [:]
-                    HotKeyManager.shared.reloadHotKeys()
+                Section {
+                    Button("Reset All to Defaults") {
+                        settings.customHotKeys = [:]
+                        HotKeyManager.shared.reloadHotKeys()
+                    }
                 }
             }
+            .padding()
         }
     }
 
@@ -111,7 +128,33 @@ struct SettingsView: View {
         let isRecording = recordingAction == action
 
         return Button {
+            // Unregister all hotkeys so they don't intercept the key press
+            HotKeyManager.shared.unregisterAll()
             recordingAction = action
+            // Install a local event monitor to capture the next key press
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard self.recordingAction == action else { return event }
+
+                var carbonMods: UInt32 = 0
+                if event.modifierFlags.contains(.control) { carbonMods |= UInt32(controlKey) }
+                if event.modifierFlags.contains(.option) { carbonMods |= UInt32(optionKey) }
+                if event.modifierFlags.contains(.shift) { carbonMods |= UInt32(shiftKey) }
+                if event.modifierFlags.contains(.command) { carbonMods |= UInt32(cmdKey) }
+
+                guard carbonMods != 0 else { return event }
+
+                let keyCode = UInt32(event.keyCode)
+
+                // Escape cancels recording
+                if event.keyCode == 53 { // kVK_Escape
+                    self.stopRecording()
+                    return nil
+                }
+
+                self.settings.customHotKeys[action.rawValue] = HotKeyBinding(keyCode: keyCode, modifiers: carbonMods)
+                self.stopRecording()
+                return nil // consume the event
+            }
         } label: {
             Text(isRecording ? "Press keys..." : binding.displayString)
                 .font(.system(.body, design: .monospaced))
@@ -119,26 +162,15 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)
-        .onKeyPress(phases: .down) { press in
-            guard recordingAction == action else { return .ignored }
+    }
 
-            var carbonMods: UInt32 = 0
-            if press.modifiers.contains(.control) { carbonMods |= UInt32(controlKey) }
-            if press.modifiers.contains(.option) { carbonMods |= UInt32(optionKey) }
-            if press.modifiers.contains(.shift) { carbonMods |= UInt32(shiftKey) }
-            if press.modifiers.contains(.command) { carbonMods |= UInt32(cmdKey) }
-
-            // Only save if at least one modifier is held
-            guard carbonMods != 0 else { return .ignored }
-
-            let keyCode = carbonKeyCode(from: press.key)
-            guard keyCode != UInt32.max else { return .ignored }
-
-            settings.customHotKeys[action.rawValue] = HotKeyBinding(keyCode: keyCode, modifiers: carbonMods)
-            HotKeyManager.shared.reloadHotKeys()
-            recordingAction = nil
-            return .handled
+    private func stopRecording() {
+        recordingAction = nil
+        if let monitor = keyMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyMonitor = nil
         }
+        HotKeyManager.shared.reloadHotKeys()
     }
 
     // MARK: - Workspaces
@@ -224,5 +256,39 @@ private func carbonKeyCode(from key: KeyEquivalent) -> UInt32 {
     if let code = map[Character(String(ch).lowercased())] {
         return UInt32(code)
     }
+
+    // - and = keys
+    if ch == "-" { return UInt32(kVK_ANSI_Minus) }
+    if ch == "=" { return UInt32(kVK_ANSI_Equal) }
+
     return UInt32.max
+}
+
+// MARK: - Snap Preview Icon
+
+/// Small visual icon showing where the window will be positioned.
+struct SnapPreviewIcon: View {
+    let rect: (x: Double, y: Double, w: Double, h: Double)
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                // Screen outline
+                RoundedRectangle(cornerRadius: 2)
+                    .stroke(Color.secondary.opacity(0.4), lineWidth: 0.5)
+
+                // Highlighted area
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(Color.accentColor.opacity(0.5))
+                    .frame(
+                        width: rect.w * geo.size.width - 2,
+                        height: rect.h * geo.size.height - 2
+                    )
+                    .position(
+                        x: (rect.x + rect.w / 2) * geo.size.width,
+                        y: (rect.y + rect.h / 2) * geo.size.height
+                    )
+            }
+        }
+    }
 }
