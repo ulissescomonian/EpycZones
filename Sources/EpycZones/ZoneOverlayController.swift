@@ -4,7 +4,12 @@ import AppKit
 final class ZoneOverlayController {
     private var panels: [NSPanel] = []
     private var overlayViews: [ZoneOverlayNSView] = []
-    private(set) var highlightedZoneIndex: Int?
+    private var viewScreens: [NSScreen] = []
+
+    /// Currently highlighted zone indices (can be multiple for spanning).
+    private(set) var highlightedZoneIndices: Set<Int> = []
+    /// The screen the highlight is on.
+    private(set) var highlightedScreen: NSScreen?
 
     /// Show overlay on all screens using a per-screen layout provider.
     func show(layoutProvider: (NSScreen) -> Layout?) {
@@ -19,12 +24,13 @@ final class ZoneOverlayController {
                 backing: .buffered,
                 defer: false
             )
-            panel.level = .floating
+            panel.level = .screenSaver
             panel.backgroundColor = .clear
             panel.isOpaque = false
             panel.hasShadow = false
             panel.ignoresMouseEvents = true
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            NSLog("[EpycZones] Overlay panel created for screen: %@, frame: %@", screen.localizedName, NSStringFromRect(screen.frame))
 
             let view = ZoneOverlayNSView(
                 layout: layout,
@@ -36,25 +42,32 @@ final class ZoneOverlayController {
 
             panels.append(panel)
             overlayViews.append(view)
+            viewScreens.append(screen)
         }
     }
 
-    func updateHighlight(zoneIndex: Int?) {
-        guard zoneIndex != highlightedZoneIndex else { return }
-        highlightedZoneIndex = zoneIndex
-        for view in overlayViews {
-            view.highlightedZoneIndex = zoneIndex
+    /// Update highlight — only on the given screen, clear all others.
+    func updateHighlight(zoneIndices: Set<Int>, on screen: NSScreen?) {
+        if zoneIndices == highlightedZoneIndices && highlightedScreen == screen { return }
+        highlightedZoneIndices = zoneIndices
+        highlightedScreen = screen
+
+        for (i, view) in overlayViews.enumerated() {
+            let isActiveScreen = screen != nil && viewScreens[i] == screen!
+            view.highlightedZoneIndices = isActiveScreen ? zoneIndices : []
             view.needsDisplay = true
         }
     }
 
     func hide() {
-        highlightedZoneIndex = nil
+        highlightedZoneIndices = []
+        highlightedScreen = nil
         for panel in panels {
             panel.orderOut(nil)
         }
         panels.removeAll()
         overlayViews.removeAll()
+        viewScreens.removeAll()
     }
 }
 
@@ -64,7 +77,7 @@ final class ZoneOverlayNSView: NSView {
     let layout: Layout
     let screenFrame: NSRect
     let visibleFrame: NSRect
-    var highlightedZoneIndex: Int?
+    var highlightedZoneIndices: Set<Int> = []
 
     private let zoneColors: [NSColor] = [
         .systemBlue, .systemGreen, .systemOrange, .systemPurple,
@@ -83,7 +96,14 @@ final class ZoneOverlayNSView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.black.withAlphaComponent(0.15).setFill()
+        let isDark = AppSettings.shared.overlayIsDark
+        NSLog("[EpycZones] draw: isDark=%d, zones=%d, highlighted=%@", isDark ? 1 : 0, layout.zones.count, highlightedZoneIndices.description)
+
+        // Background tint
+        let bgColor = isDark
+            ? NSColor.black.withAlphaComponent(0.15)
+            : NSColor.white.withAlphaComponent(0.25)
+        bgColor.setFill()
         bounds.fill()
 
         let vfLocal = NSRect(
@@ -94,10 +114,11 @@ final class ZoneOverlayNSView: NSView {
         )
 
         let gap: CGFloat = 4
+        let baseColor = isDark ? NSColor.white : NSColor.black
 
         for (index, zone) in layout.zones.enumerated() {
-            let isHighlighted = index == highlightedZoneIndex
-            let color = zoneColors[index % zoneColors.count]
+            let isHighlighted = highlightedZoneIndices.contains(index)
+            let accentColor = zoneColors[index % zoneColors.count]
 
             let rect = NSRect(
                 x: vfLocal.origin.x + zone.rect.x * vfLocal.width + gap,
@@ -106,26 +127,30 @@ final class ZoneOverlayNSView: NSView {
                 height: zone.rect.height * vfLocal.height - gap * 2
             )
 
+            // Fill
             let fillColor = isHighlighted
-                ? color.withAlphaComponent(0.35)
-                : NSColor.white.withAlphaComponent(0.08)
+                ? accentColor.withAlphaComponent(0.35)
+                : baseColor.withAlphaComponent(isDark ? 0.08 : 0.06)
             fillColor.setFill()
             let path = NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10)
             path.fill()
 
+            // Border
             let borderColor = isHighlighted
-                ? color.withAlphaComponent(0.9)
-                : NSColor.white.withAlphaComponent(0.3)
+                ? accentColor.withAlphaComponent(0.9)
+                : baseColor.withAlphaComponent(isDark ? 0.3 : 0.2)
             borderColor.setStroke()
             path.lineWidth = isHighlighted ? 3 : 1.5
             path.stroke()
 
+            // Zone number
             let fontSize = max(20, min(rect.width, rect.height) * 0.25)
+            let textColor = isHighlighted
+                ? (isDark ? NSColor.white : NSColor.black).withAlphaComponent(0.9)
+                : baseColor.withAlphaComponent(0.4)
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: fontSize, weight: .bold),
-                .foregroundColor: isHighlighted
-                    ? NSColor.white.withAlphaComponent(0.9)
-                    : NSColor.white.withAlphaComponent(0.4),
+                .foregroundColor: textColor,
             ]
             let label = NSAttributedString(string: "\(index + 1)", attributes: attrs)
             let labelSize = label.size()

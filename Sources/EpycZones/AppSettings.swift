@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 import ServiceManagement
@@ -40,6 +41,20 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(edgeSnapDelay, forKey: "edgeSnapDelay") }
     }
 
+    /// Overlay theme: "auto", "dark", "light".
+    var overlayTheme: String {
+        didSet { UserDefaults.standard.set(overlayTheme, forKey: "overlayTheme") }
+    }
+
+    /// Custom hotkey bindings. Key = action name, value = key code + modifier string.
+    var customHotKeys: [String: HotKeyBinding] {
+        didSet {
+            if let data = try? JSONEncoder().encode(customHotKeys) {
+                UserDefaults.standard.set(data, forKey: "customHotKeys")
+            }
+        }
+    }
+
     private init() {
         let defaults = UserDefaults.standard
         // Register defaults
@@ -50,6 +65,7 @@ final class AppSettings {
             "edgeSnapEnabled": false,
             "edgeSnapThreshold": 5.0,
             "edgeSnapDelay": 0.3,
+            "overlayTheme": "auto",
         ])
         self.zoneGap = defaults.double(forKey: "zoneGap")
         self.animateSnap = defaults.bool(forKey: "animateSnap")
@@ -57,6 +73,25 @@ final class AppSettings {
         self.edgeSnapEnabled = defaults.bool(forKey: "edgeSnapEnabled")
         self.edgeSnapThreshold = defaults.double(forKey: "edgeSnapThreshold")
         self.edgeSnapDelay = defaults.double(forKey: "edgeSnapDelay")
+        self.overlayTheme = defaults.string(forKey: "overlayTheme") ?? "auto"
+        if let data = defaults.data(forKey: "customHotKeys"),
+           let decoded = try? JSONDecoder().decode([String: HotKeyBinding].self, from: data) {
+            self.customHotKeys = decoded
+        } else {
+            self.customHotKeys = [:]
+        }
+    }
+
+    /// Resolve whether overlay should use dark colors based on theme setting + system appearance.
+    var overlayIsDark: Bool {
+        switch overlayTheme {
+        case "dark": return true
+        case "light": return false
+        default:
+            // NSApp.effectiveAppearance is unreliable for accessory (menu bar) apps.
+            // Use the system-level UserDefaults setting instead.
+            return UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
+        }
     }
 
     private func updateLoginItem() {

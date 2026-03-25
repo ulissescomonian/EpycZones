@@ -4,6 +4,7 @@ struct LayoutEditorView: View {
     @Environment(LayoutStore.self) private var store
     @State private var selectedLayoutID: UUID?
     @State private var selectedZoneID: UUID?
+    @State private var snapToGrid = true
 
     var body: some View {
         @Bindable var store = store
@@ -138,7 +139,8 @@ struct LayoutEditorView: View {
             // Canvas
             ZoneCanvasView(
                 zones: $store.layouts[layoutIndex].zones,
-                selectedZoneID: $selectedZoneID
+                selectedZoneID: $selectedZoneID,
+                snapToGrid: $snapToGrid
             )
             .padding(20)
 
@@ -194,6 +196,12 @@ struct LayoutEditorView: View {
             } label: {
                 Label("Add Zone", systemImage: "plus.rectangle")
             }
+
+            Spacer()
+
+            Toggle("Snap to Grid", isOn: $snapToGrid)
+                .toggleStyle(.checkbox)
+                .font(.callout)
 
             Spacer()
 

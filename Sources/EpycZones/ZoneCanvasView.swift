@@ -4,13 +4,15 @@ import SwiftUI
 struct ZoneCanvasView: View {
     @Binding var zones: [Zone]
     @Binding var selectedZoneID: UUID?
+    @Binding var snapToGrid: Bool
 
     @State private var interaction: Interaction = .idle
     @State private var dragOrigin: CGPoint = .zero
     @State private var originalRect: RelativeRect = .zero
 
-    private let gridDivisions = 12
+    private let gridDivisions = 24
     private let handleSize: CGFloat = 10
+    private let edgeHandleLength: CGFloat = 20
 
     private let zoneColors: [Color] = [
         .blue, .green, .orange, .purple, .pink, .teal, .indigo, .mint, .cyan, .red,
@@ -39,7 +41,6 @@ struct ZoneCanvasView: View {
             .clipped()
             .contentShape(Rectangle())
             .onTapGesture { location in
-                // Tap background to deselect
                 if hitTestZone(at: location, canvasSize: size) == nil {
                     selectedZoneID = nil
                 }
@@ -58,17 +59,15 @@ struct ZoneCanvasView: View {
 
     private func canvas(size: CGSize) -> some View {
         Canvas { context, drawSize in
-            // Grid lines
             let color = Color(nsColor: .separatorColor).opacity(0.3)
-            for i in 1..<gridDivisions {
-                let fraction = CGFloat(i) / CGFloat(gridDivisions)
-                // Vertical
+            let divisions = snapToGrid ? gridDivisions : 12
+            for i in 1..<divisions {
+                let fraction = CGFloat(i) / CGFloat(divisions)
                 let vx = fraction * drawSize.width
                 context.stroke(Path { p in
                     p.move(to: CGPoint(x: vx, y: 0))
                     p.addLine(to: CGPoint(x: vx, y: drawSize.height))
                 }, with: .color(color), lineWidth: 0.5)
-                // Horizontal
                 let hy = fraction * drawSize.height
                 context.stroke(Path { p in
                     p.move(to: CGPoint(x: 0, y: hy))
@@ -115,7 +114,7 @@ struct ZoneCanvasView: View {
                         let dy = (value.location.y - dragOrigin.y) / size.height
                         zones[idx].rect.x = originalRect.x + dx
                         zones[idx].rect.y = originalRect.y + dy
-                        zones[idx].rect.snapToGrid(divisions: gridDivisions)
+                        applySnap(to: &zones[idx].rect)
                     }
                 }
                 .onEnded { _ in
@@ -124,66 +123,98 @@ struct ZoneCanvasView: View {
         )
     }
 
-    // MARK: - Resize Handles
+    // MARK: - Resize Handles (corners + edge midpoints)
 
     private func handlesOverlay(for zone: Zone, size: CGSize) -> some View {
         let rect = canvasRect(for: zone.rect, in: size)
 
-        return ForEach(Corner.allCases, id: \.self) { corner in
-            let pos = handlePosition(corner: corner, rect: rect)
-            Circle()
-                .fill(Color.accentColor)
-                .frame(width: handleSize, height: handleSize)
-                .position(pos)
-                .gesture(
-                    DragGesture(minimumDistance: 1)
-                        .onChanged { value in
-                            guard let idx = zones.firstIndex(where: { $0.id == zone.id }) else { return }
-                            if case .idle = interaction {
-                                interaction = .resizing(idx, corner)
-                                dragOrigin = value.startLocation
-                                originalRect = zones[idx].rect
-                            }
-                            if case .resizing(let rIdx, let rCorner) = interaction {
-                                applyResize(
-                                    index: rIdx,
-                                    corner: rCorner,
-                                    delta: CGSize(
-                                        width: (value.location.x - dragOrigin.x) / size.width,
-                                        height: (value.location.y - dragOrigin.y) / size.height
-                                    )
-                                )
-                            }
-                        }
-                        .onEnded { _ in interaction = .idle }
-                )
+        return ZStack {
+            // Corner handles
+            ForEach(Handle.corners, id: \.self) { handle in
+                let pos = handlePosition(handle, rect: rect)
+                Circle()
+                    .fill(Color.accentColor)
+                    .frame(width: handleSize, height: handleSize)
+                    .position(pos)
+                    .gesture(resizeGesture(for: zone, handle: handle, canvasSize: size))
+            }
+
+            // Edge midpoint handles
+            ForEach(Handle.edges, id: \.self) { handle in
+                let pos = handlePosition(handle, rect: rect)
+                let isHorizontal = handle == .midLeft || handle == .midRight
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.accentColor)
+                    .frame(
+                        width: isHorizontal ? 6 : edgeHandleLength,
+                        height: isHorizontal ? edgeHandleLength : 6
+                    )
+                    .position(pos)
+                    .gesture(resizeGesture(for: zone, handle: handle, canvasSize: size))
+            }
         }
+    }
+
+    private func resizeGesture(for zone: Zone, handle: Handle, canvasSize: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 1)
+            .onChanged { value in
+                guard let idx = zones.firstIndex(where: { $0.id == zone.id }) else { return }
+                if case .idle = interaction {
+                    interaction = .resizing(idx, handle)
+                    dragOrigin = value.startLocation
+                    originalRect = zones[idx].rect
+                }
+                if case .resizing(let rIdx, let rHandle) = interaction {
+                    applyResize(
+                        index: rIdx,
+                        handle: rHandle,
+                        delta: CGSize(
+                            width: (value.location.x - dragOrigin.x) / canvasSize.width,
+                            height: (value.location.y - dragOrigin.y) / canvasSize.height
+                        )
+                    )
+                }
+            }
+            .onEnded { _ in interaction = .idle }
     }
 
     // MARK: - Resize Logic
 
-    private func applyResize(index: Int, corner: Corner, delta: CGSize) {
+    private func applyResize(index: Int, handle: Handle, delta: CGSize) {
         var r = originalRect
-        switch corner {
+        switch handle {
         case .topLeft:
-            r.x += delta.width
-            r.y += delta.height
-            r.width -= delta.width
-            r.height -= delta.height
+            r.x += delta.width; r.y += delta.height
+            r.width -= delta.width; r.height -= delta.height
         case .topRight:
             r.y += delta.height
-            r.width += delta.width
-            r.height -= delta.height
+            r.width += delta.width; r.height -= delta.height
         case .bottomLeft:
             r.x += delta.width
-            r.width -= delta.width
-            r.height += delta.height
+            r.width -= delta.width; r.height += delta.height
         case .bottomRight:
-            r.width += delta.width
+            r.width += delta.width; r.height += delta.height
+        case .midTop:
+            r.y += delta.height; r.height -= delta.height
+        case .midBottom:
             r.height += delta.height
+        case .midLeft:
+            r.x += delta.width; r.width -= delta.width
+        case .midRight:
+            r.width += delta.width
         }
-        r.snapToGrid(divisions: gridDivisions)
+        applySnap(to: &r)
         zones[index].rect = r
+    }
+
+    // MARK: - Snap
+
+    private func applySnap(to rect: inout RelativeRect) {
+        if snapToGrid {
+            rect.snapToGrid(divisions: gridDivisions)
+        } else {
+            rect.clamp()
+        }
     }
 
     // MARK: - Helpers
@@ -197,12 +228,16 @@ struct ZoneCanvasView: View {
         )
     }
 
-    private func handlePosition(corner: Corner, rect: CGRect) -> CGPoint {
-        switch corner {
+    private func handlePosition(_ handle: Handle, rect: CGRect) -> CGPoint {
+        switch handle {
         case .topLeft:     return CGPoint(x: rect.minX, y: rect.minY)
         case .topRight:    return CGPoint(x: rect.maxX, y: rect.minY)
         case .bottomLeft:  return CGPoint(x: rect.minX, y: rect.maxY)
         case .bottomRight: return CGPoint(x: rect.maxX, y: rect.maxY)
+        case .midTop:      return CGPoint(x: rect.midX, y: rect.minY)
+        case .midBottom:   return CGPoint(x: rect.midX, y: rect.maxY)
+        case .midLeft:     return CGPoint(x: rect.minX, y: rect.midY)
+        case .midRight:    return CGPoint(x: rect.maxX, y: rect.midY)
         }
     }
 
@@ -220,10 +255,14 @@ struct ZoneCanvasView: View {
     enum Interaction: Equatable {
         case idle
         case moving(Int)
-        case resizing(Int, Corner)
+        case resizing(Int, Handle)
     }
 
-    enum Corner: CaseIterable {
+    enum Handle: CaseIterable, Hashable {
         case topLeft, topRight, bottomLeft, bottomRight
+        case midTop, midBottom, midLeft, midRight
+
+        static let corners: [Handle] = [.topLeft, .topRight, .bottomLeft, .bottomRight]
+        static let edges: [Handle] = [.midTop, .midBottom, .midLeft, .midRight]
     }
 }

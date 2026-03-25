@@ -149,31 +149,55 @@ final class DragDetector {
     }
 
     private func updateHighlight(at nsPoint: NSPoint) {
-        overlay.updateHighlight(zoneIndex: zoneIndex(at: nsPoint))
+        let (indices, screen) = zoneIndices(at: nsPoint)
+        overlay.updateHighlight(zoneIndices: indices, on: screen)
     }
 
     private func hideOverlay(snap: Bool) {
-        let zoneIdx = overlay.highlightedZoneIndex
+        let zoneIndices = overlay.highlightedZoneIndices
+        let screen = overlay.highlightedScreen
         isOverlayVisible = false
         overlay.hide()
 
-        if snap, let index = zoneIdx, let window = draggedWindow {
-            let mousePos = NSEvent.mouseLocation
-            guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mousePos) }),
-                  let layout = LayoutStore.shared.activeLayout(for: screen),
-                  index < layout.zones.count else { return }
-            snapWindow(window, to: layout.zones[index], on: screen)
-            WindowPersistence.record(window: window, zoneIndex: index, screen: screen, layoutID: layout.id)
+        if snap, !zoneIndices.isEmpty, let window = draggedWindow,
+           let screen = screen,
+           let layout = LayoutStore.shared.activeLayout(for: screen) {
+            let validIndices = zoneIndices.filter { $0 < layout.zones.count }
+            guard !validIndices.isEmpty else { return }
+            let zones = validIndices.map { layout.zones[$0] }
+            snapWindow(window, toZones: zones, on: screen)
+            if let first = validIndices.sorted().first {
+                WindowPersistence.record(window: window, zoneIndex: first, screen: screen, layoutID: layout.id)
+            }
         }
     }
 
     // MARK: - Window Snapping
 
-    private func snapWindow(_ window: AXUIElement, to zone: Zone, on screen: NSScreen) {
-        let targetNS = zone.rect.frame(in: screen.visibleFrame, gap: AppSettings.shared.zoneGap)
+    /// Snap window to combined bounding rect of one or more zones.
+    private func snapWindow(_ window: AXUIElement, toZones zones: [Zone], on screen: NSScreen) {
+        let gap = AppSettings.shared.zoneGap
+        let combined = combinedRect(of: zones)
+        let targetNS = combined.frame(in: screen.visibleFrame, gap: gap)
         DispatchQueue.global(qos: .userInteractive).async {
             WindowAnimator.animate(window: window, to: targetNS)
         }
+    }
+
+    /// Compute bounding RelativeRect that encompasses all given zones.
+    private func combinedRect(of zones: [Zone]) -> RelativeRect {
+        guard let first = zones.first else { return .zero }
+        var minX = first.rect.x
+        var minY = first.rect.y
+        var maxX = first.rect.x + first.rect.width
+        var maxY = first.rect.y + first.rect.height
+        for zone in zones.dropFirst() {
+            minX = min(minX, zone.rect.x)
+            minY = min(minY, zone.rect.y)
+            maxX = max(maxX, zone.rect.x + zone.rect.width)
+            maxY = max(maxY, zone.rect.y + zone.rect.height)
+        }
+        return RelativeRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
     }
 
     // MARK: - AX Helpers
@@ -227,20 +251,76 @@ final class DragDetector {
 
     // MARK: - Zone Hit-Testing
 
-    private func zoneIndex(at nsPoint: NSPoint) -> Int? {
+    /// Returns the set of zone indices the cursor is over (may be >1 near boundaries)
+    /// and the screen the cursor is on.
+    private func zoneIndices(at nsPoint: NSPoint) -> (Set<Int>, NSScreen?) {
         guard let screen = NSScreen.screens.first(where: { $0.frame.contains(nsPoint) }),
-              let layout = LayoutStore.shared.activeLayout(for: screen) else { return nil }
+              let layout = LayoutStore.shared.activeLayout(for: screen) else { return ([], nil) }
 
         let vf = screen.visibleFrame
         let relX = (nsPoint.x - vf.origin.x) / vf.width
         let relY = 1.0 - (nsPoint.y - vf.origin.y) / vf.height
 
+        // Zone boundary threshold in relative coords (~20px)
+        let threshold = 20.0 / max(vf.width, vf.height)
+
+        // First, find exact zone hit
+        var exactHit: Int?
         for (index, zone) in layout.zones.enumerated() {
             let r = zone.rect
             if relX >= r.x && relX < r.x + r.width && relY >= r.y && relY < r.y + r.height {
-                return index
+                exactHit = index
+                break
             }
         }
-        return nil
+
+        guard let primary = exactHit else { return ([], screen) }
+
+        // Check if cursor is near the edge of the primary zone — if so, find the ONE closest adjacent zone.
+        // Only consider zones that share an actual border segment (overlap on the perpendicular axis).
+        var result: Set<Int> = [primary]
+        let pz = layout.zones[primary].rect
+
+        var bestCandidate: Int?
+        var bestDistance = Double.infinity
+
+        for (index, zone) in layout.zones.enumerated() where index != primary {
+            let r = zone.rect
+
+            // Check vertical shared edge (left/right) — zones must overlap on Y axis
+            let yOverlap = max(0, min(pz.y + pz.height, r.y + r.height) - max(pz.y, r.y))
+            // Check horizontal shared edge (top/bottom) — zones must overlap on X axis
+            let xOverlap = max(0, min(pz.x + pz.width, r.x + r.width) - max(pz.x, r.x))
+
+            var edgeDist = Double.infinity
+
+            // Cursor near right edge of primary & zone starts there (zones share a vertical edge)
+            if yOverlap > 0.01 && abs(r.x - (pz.x + pz.width)) < threshold {
+                edgeDist = min(edgeDist, abs(relX - (pz.x + pz.width)))
+            }
+            // Cursor near left edge of primary & zone ends there
+            if yOverlap > 0.01 && abs((r.x + r.width) - pz.x) < threshold {
+                edgeDist = min(edgeDist, abs(relX - pz.x))
+            }
+            // Cursor near bottom edge of primary & zone starts there (zones share a horizontal edge)
+            if xOverlap > 0.01 && abs(r.y - (pz.y + pz.height)) < threshold {
+                edgeDist = min(edgeDist, abs(relY - (pz.y + pz.height)))
+            }
+            // Cursor near top edge of primary & zone ends there
+            if xOverlap > 0.01 && abs((r.y + r.height) - pz.y) < threshold {
+                edgeDist = min(edgeDist, abs(relY - pz.y))
+            }
+
+            if edgeDist < threshold && edgeDist < bestDistance {
+                bestDistance = edgeDist
+                bestCandidate = index
+            }
+        }
+
+        if let candidate = bestCandidate {
+            result.insert(candidate)
+        }
+
+        return (result, screen)
     }
 }

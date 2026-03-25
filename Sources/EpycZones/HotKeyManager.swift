@@ -66,41 +66,50 @@ final class HotKeyManager {
         )
     }
 
-    /// Register the default snap hotkeys.
+    /// Register all hotkeys using resolved (custom or default) bindings.
     func registerDefaults() {
-        let mods = UInt32(controlKey | optionKey)
+        // Map HotKeyActions to SnapPositions
+        let snapActions: [HotKeyAction: SnapPosition] = [
+            .leftHalf: .leftHalf, .rightHalf: .rightHalf,
+            .topHalf: .topHalf, .bottomHalf: .bottomHalf,
+            .topLeftQuarter: .topLeftQuarter, .topRightQuarter: .topRightQuarter,
+            .bottomLeftQuarter: .bottomLeftQuarter, .bottomRightQuarter: .bottomRightQuarter,
+            .maximize: .maximize, .center: .center,
+        ]
 
-        // Halves: Ctrl+Option + Arrow
-        register(keyCode: UInt32(kVK_LeftArrow),  modifiers: mods, position: .leftHalf)
-        register(keyCode: UInt32(kVK_RightArrow), modifiers: mods, position: .rightHalf)
-        register(keyCode: UInt32(kVK_UpArrow),    modifiers: mods, position: .topHalf)
-        register(keyCode: UInt32(kVK_DownArrow),  modifiers: mods, position: .bottomHalf)
+        for (action, position) in snapActions {
+            let b = resolvedBinding(for: action)
+            register(keyCode: b.keyCode, modifiers: b.modifiers, position: position)
+        }
 
-        // Quarters: Ctrl+Option + U/I/J/K (spatial grid)
-        //   U I
-        //   J K
-        register(keyCode: UInt32(kVK_ANSI_U), modifiers: mods, position: .topLeftQuarter)
-        register(keyCode: UInt32(kVK_ANSI_I), modifiers: mods, position: .topRightQuarter)
-        register(keyCode: UInt32(kVK_ANSI_J), modifiers: mods, position: .bottomLeftQuarter)
-        register(keyCode: UInt32(kVK_ANSI_K), modifiers: mods, position: .bottomRightQuarter)
-
-        // Maximize & Center
-        register(keyCode: UInt32(kVK_Return), modifiers: mods, position: .maximize)
-        register(keyCode: UInt32(kVK_ANSI_C), modifiers: mods, position: .center)
-
-        // Move between monitors: Ctrl+Option + N/P
-        register(keyCode: UInt32(kVK_ANSI_N), modifiers: mods) {
+        // Move between monitors
+        let nextMon = resolvedBinding(for: .nextMonitor)
+        register(keyCode: nextMon.keyCode, modifiers: nextMon.modifiers) {
             WindowManager.moveToNextScreen()
         }
-        register(keyCode: UInt32(kVK_ANSI_P), modifiers: mods) {
+        let prevMon = resolvedBinding(for: .prevMonitor)
+        register(keyCode: prevMon.keyCode, modifiers: prevMon.modifiers) {
             WindowManager.moveToPreviousScreen()
         }
 
-        // Cycle layouts: Ctrl+Option + L
-        register(keyCode: UInt32(kVK_ANSI_L), modifiers: mods) {
+        // Cycle layouts
+        let cycle = resolvedBinding(for: .cycleLayout)
+        register(keyCode: cycle.keyCode, modifiers: cycle.modifiers) {
             LayoutStore.shared.cycleLayout()
             LayoutNotification.show()
         }
+    }
+
+    /// Unregister all hotkeys and re-register with current settings.
+    func reloadHotKeys() {
+        for ref in hotKeyRefs {
+            UnregisterEventHotKey(ref)
+        }
+        hotKeyRefs.removeAll()
+        handlers.removeAll()
+        nextID = 1
+        registerDefaults()
+        registerZoneHotKeys()
     }
 
     /// Register hotkeys for zone indices 1-9 (Ctrl+Option+1 through Ctrl+Option+9).

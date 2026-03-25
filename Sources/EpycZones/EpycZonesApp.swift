@@ -29,9 +29,22 @@ struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
+        // Visual layout preview
+        if let layout = store.activeLayout, !layout.zones.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(layout.name)
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                LayoutPreviewView(layout: layout)
+                    .frame(width: 180, height: 100)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+        }
+
         // Active layout zones
         if let layout = store.activeLayout, !layout.zones.isEmpty {
-            Section("Zones — \(layout.name)") {
+            Section("Zones") {
                 ForEach(Array(layout.zones.prefix(9).enumerated()), id: \.element.id) { index, zone in
                     Button {
                         WindowManager.snap(to: zone)
@@ -118,6 +131,51 @@ struct MenuBarView: View {
                 Text(position.shortcutHint)
                     .foregroundStyle(.secondary)
                     .font(.caption)
+            }
+        }
+    }
+}
+
+// MARK: - Layout Preview (mini zone map in menu bar)
+
+struct LayoutPreviewView: View {
+    let layout: Layout
+
+    private let zoneColors: [Color] = [
+        .blue, .green, .orange, .purple, .pink, .teal, .indigo, .mint, .cyan, .red,
+    ]
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.primary.opacity(0.05))
+                    .stroke(Color.primary.opacity(0.15), lineWidth: 0.5)
+
+                ForEach(Array(layout.zones.enumerated()), id: \.element.id) { index, zone in
+                    let r = zone.rect
+                    let color = zoneColors[index % zoneColors.count]
+
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(color.opacity(0.3))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 2)
+                                .stroke(color.opacity(0.6), lineWidth: 1)
+                        )
+                        .overlay(
+                            Text("\(index + 1)")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(color)
+                        )
+                        .frame(
+                            width: r.width * geo.size.width - 2,
+                            height: r.height * geo.size.height - 2
+                        )
+                        .position(
+                            x: (r.x + r.width / 2) * geo.size.width,
+                            y: (r.y + r.height / 2) * geo.size.height
+                        )
+                }
             }
         }
     }
