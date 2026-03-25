@@ -67,8 +67,7 @@ On first launch, macOS will ask for **Accessibility** permission. This is requir
 
 All shortcuts use **⌃⌥** (Ctrl+Option) as the default modifier. Every shortcut is fully rebindable in **Settings > Hotkeys**.
 
-<details>
-<summary><strong>Halves</strong></summary>
+### Halves
 
 | Shortcut | Action |
 |----------|--------|
@@ -77,10 +76,7 @@ All shortcuts use **⌃⌥** (Ctrl+Option) as the default modifier. Every shortc
 | `⌃⌥ ↑` | Top Half |
 | `⌃⌥ ↓` | Bottom Half |
 
-</details>
-
-<details>
-<summary><strong>Quarters</strong></summary>
+### Quarters
 
 | Shortcut | Action |
 |----------|--------|
@@ -89,10 +85,7 @@ All shortcuts use **⌃⌥** (Ctrl+Option) as the default modifier. Every shortc
 | `⌃⌥ J` | Bottom Left |
 | `⌃⌥ K` | Bottom Right |
 
-</details>
-
-<details>
-<summary><strong>Thirds & Two-Thirds</strong></summary>
+### Thirds & Two-Thirds
 
 | Shortcut | Action |
 |----------|--------|
@@ -103,10 +96,7 @@ All shortcuts use **⌃⌥** (Ctrl+Option) as the default modifier. Every shortc
 | `⌃⌥ R` | Center Two Thirds |
 | `⌃⌥ T` | Last Two Thirds |
 
-</details>
-
-<details>
-<summary><strong>Special & Navigation</strong></summary>
+### Special & Navigation
 
 | Shortcut | Action |
 |----------|--------|
@@ -121,8 +111,6 @@ All shortcuts use **⌃⌥** (Ctrl+Option) as the default modifier. Every shortc
 | `⌃⌥ L` | Cycle layout |
 | `⌃⌥ 1-9` | Snap to zone 1–9 |
 | `Shift + Drag` | Drag to zone overlay |
-
-</details>
 
 Fourths and sixths are available as snap positions and can be assigned to custom shortcuts in Settings.
 
