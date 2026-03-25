@@ -116,7 +116,37 @@ final class DragDetector {
 
     private func onMouseUp() {
         if isOverlayVisible {
-            hideOverlay(snap: true)
+            // Re-evaluate zones at the final mouse position
+            updateHighlight(at: NSEvent.mouseLocation)
+
+            // Capture state before hiding overlay
+            let zoneIndices = overlay.highlightedZoneIndices
+            let screen = overlay.highlightedScreen
+
+            // Hide overlay immediately (visual feedback)
+            isOverlayVisible = false
+            overlay.hide()
+
+            // After a drag, the window is at the cursor's drop position.
+            // Move it to the top-left of the screen first so SIZE → POSITION → SIZE
+            // doesn't get clamped by macOS (bottom zones would extend off-screen).
+            if let w = WindowManager.getFocusedWindow() {
+                let vf = screen?.visibleFrame ?? .zero
+                let primaryHeight = NSScreen.screens[0].frame.height
+                let safeY = primaryHeight - vf.origin.y - vf.height  // top of visible area in AX coords
+                WindowManager.setPositionPublic(of: w, to: CGPoint(x: vf.origin.x, y: safeY))
+            }
+
+            if let screen = screen, !zoneIndices.isEmpty,
+               let layout = LayoutStore.shared.activeLayout(for: screen) {
+                let validIndices = zoneIndices.filter { $0 < layout.zones.count }
+                if validIndices.count == 1, let index = validIndices.first {
+                    WindowManager.snapToActiveZone(index: index, on: screen, animated: false)
+                } else if !validIndices.isEmpty {
+                    let zones = validIndices.map { layout.zones[$0] }
+                    self.snapWindow(nil, toZones: zones, on: screen)
+                }
+            }
         }
         isMouseDown = false
         isDragging = false
@@ -174,12 +204,14 @@ final class DragDetector {
 
     // MARK: - Window Snapping
 
-    /// Snap window to combined bounding rect of one or more zones.
-    private func snapWindow(_ window: AXUIElement, toZones zones: [Zone], on screen: NSScreen) {
+    /// Snap window to combined bounding rect of one or more zones (spanning).
+    private func snapWindow(_ window: AXUIElement?, toZones zones: [Zone], on screen: NSScreen) {
+        guard let w = window ?? WindowManager.getFocusedWindow() else { return }
         let gap = AppSettings.shared.zoneGap
         let combined = combinedRect(of: zones)
         let targetNS = combined.frame(in: screen.visibleFrame, gap: gap)
-        WindowAnimator.animate(window: window, to: targetNS)
+        WindowManager.saveFrame(of: w)
+        WindowManager.applyFrame(targetNS, to: w, animated: false)
     }
 
     /// Compute bounding RelativeRect that encompasses all given zones.
@@ -201,16 +233,7 @@ final class DragDetector {
     // MARK: - AX Helpers
 
     private func getFocusedWindow() -> AXUIElement? {
-        let systemWide = AXUIElementCreateSystemWide()
-        var focusedApp: AnyObject?
-        guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedApplicationAttribute as CFString, &focusedApp) == .success else {
-            return nil
-        }
-        var focusedWindow: AnyObject?
-        guard AXUIElementCopyAttributeValue(focusedApp as! AXUIElement, kAXFocusedWindowAttribute as CFString, &focusedWindow) == .success else {
-            return nil
-        }
-        return (focusedWindow as! AXUIElement)
+        return WindowManager.getFocusedWindow()
     }
 
     // MARK: - Edge Snap Timer

@@ -57,15 +57,21 @@ enum WindowManager {
     static func snapToActiveZone(index: Int) {
         guard AccessibilityChecker.isGranted else { return }
         guard let window = getFocusedWindow() else { return }
-
         let screen = screenForWindow(window) ?? NSScreen.main ?? NSScreen.screens[0]
+        snapToActiveZone(index: index, on: screen)
+    }
+
+    static func snapToActiveZone(index: Int, on screen: NSScreen, animated: Bool = true) {
+        guard AccessibilityChecker.isGranted else { return }
+        guard let window = getFocusedWindow() else { return }
         guard let layout = LayoutStore.shared.activeLayout(for: screen),
               index < layout.zones.count else { return }
 
         saveFrame(of: window)
         let gap = AppSettings.shared.zoneGap
-        let targetNS = layout.zones[index].rect.frame(in: screen.visibleFrame, gap: gap)
-        applyFrame(targetNS, to: window)
+        let zone = layout.zones[index]
+        let targetNS = zone.rect.frame(in: screen.visibleFrame, gap: gap)
+        applyFrame(targetNS, to: window, animated: animated)
         WindowPersistence.record(window: window, zoneIndex: index, screen: screen, layoutID: layout.id)
     }
 
@@ -133,7 +139,7 @@ enum WindowManager {
         applyFrame(targetNS, to: window)
     }
 
-    private static func saveFrame(of window: AXUIElement) {
+    static func saveFrame(of window: AXUIElement) {
         guard let frame = currentNSFrame(of: window) else { return }
         let key = windowHash(window)
         undoStacks[key, default: []].append(frame)
@@ -214,36 +220,105 @@ enum WindowManager {
     // MARK: - Apply
 
     static func applyFrame(_ targetNS: CGRect, to window: AXUIElement, animated: Bool = true) {
+        let primaryHeight = NSScreen.screens[0].frame.height
+        let targetPos = CGPoint(x: targetNS.origin.x, y: primaryHeight - targetNS.origin.y - targetNS.height)
+
+        // Disable AXEnhancedUserInterface (used by Terminal, Xcode, etc.)
+        // which blocks programmatic resize when enabled (e.g. for VoiceOver).
+        let appElement = getAppElement(for: window)
+        let hadEnhancedUI = getEnhancedUI(appElement)
+        if hadEnhancedUI {
+            setEnhancedUI(appElement, enabled: false)
+        }
+
         if animated && AppSettings.shared.animateSnap {
-            // WindowAnimator handles main-thread dispatch internally
             WindowAnimator.animate(window: window, to: targetNS)
         } else {
-            let primaryHeight = NSScreen.screens[0].frame.height
-            setPosition(of: window, to: CGPoint(x: targetNS.origin.x, y: primaryHeight - targetNS.origin.y - targetNS.height))
+            // Rectangle's approach: SIZE → POSITION → SIZE.
+            // macOS enforces sizes that fit the current display position.
+            // First SIZE shrinks the window so POSITION doesn't get clamped.
+            // Second SIZE corrects any size constraint from the old position.
+            setSize(of: window, to: targetNS.size)
+            setPosition(of: window, to: targetPos)
             setSize(of: window, to: targetNS.size)
         }
+
+        // Re-enable AXEnhancedUserInterface if it was on
+        if hadEnhancedUI {
+            setEnhancedUI(appElement, enabled: true)
+        }
+    }
+
+    // MARK: - Enhanced UI Helpers
+
+    private static let kAXEnhancedUserInterface = "AXEnhancedUserInterface" as CFString
+
+    private static func getAppElement(for window: AXUIElement) -> AXUIElement? {
+        var pid: pid_t = 0
+        AXUIElementGetPid(window, &pid)
+        guard pid != 0 else { return nil }
+        return AXUIElementCreateApplication(pid)
+    }
+
+    private static func getEnhancedUI(_ app: AXUIElement?) -> Bool {
+        guard let app = app else { return false }
+        var value: AnyObject?
+        guard AXUIElementCopyAttributeValue(app, kAXEnhancedUserInterface, &value) == .success else { return false }
+        return (value as? Bool) ?? false
+    }
+
+    private static func setEnhancedUI(_ app: AXUIElement?, enabled: Bool) {
+        guard let app = app else { return }
+        AXUIElementSetAttributeValue(app, kAXEnhancedUserInterface, enabled as CFBoolean)
     }
 
     // MARK: - AX Helpers
 
-    private static func getFocusedWindow() -> AXUIElement? {
+    static func getFocusedWindow() -> AXUIElement? {
+        // Primary approach: system-wide focused app → focused window
         let systemWide = AXUIElementCreateSystemWide()
 
         var focusedApp: AnyObject?
-        guard AXUIElementCopyAttributeValue(
+        if AXUIElementCopyAttributeValue(
             systemWide,
             kAXFocusedApplicationAttribute as CFString,
             &focusedApp
-        ) == .success else { return nil }
+        ) == .success {
+            var focusedWindow: AnyObject?
+            if AXUIElementCopyAttributeValue(
+                focusedApp as! AXUIElement,
+                kAXFocusedWindowAttribute as CFString,
+                &focusedWindow
+            ) == .success {
+                return (focusedWindow as! AXUIElement)
+            }
+        }
 
+        // Fallback: NSWorkspace frontmost app PID (fixes Electron apps like Termius
+        // where the launcher PID differs from the window-owning PID)
+        guard let frontApp = NSWorkspace.shared.frontmostApplication else { return nil }
+        let pid = frontApp.processIdentifier
+        let axApp = AXUIElementCreateApplication(pid)
+
+        // Try focused window first
         var focusedWindow: AnyObject?
-        guard AXUIElementCopyAttributeValue(
-            focusedApp as! AXUIElement,
-            kAXFocusedWindowAttribute as CFString,
-            &focusedWindow
-        ) == .success else { return nil }
+        if AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &focusedWindow) == .success {
+            return (focusedWindow as! AXUIElement)
+        }
 
-        return (focusedWindow as! AXUIElement)
+        // Last resort: first window in the windows list
+        var windows: AnyObject?
+        if AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &windows) == .success,
+           let winArray = windows as? [AXUIElement],
+           let first = winArray.first {
+            return first
+        }
+
+        return nil
+    }
+
+    static func setPositionPublic(of window: AXUIElement, to point: CGPoint) {
+        setPosition(of: window, to: point)
     }
 
     private static func setPosition(of window: AXUIElement, to point: CGPoint) {
