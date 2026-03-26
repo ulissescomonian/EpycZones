@@ -113,6 +113,58 @@ enum SnapPosition: String, CaseIterable {
         }
     }
 
+    /// Direction to search for adjacent monitor when window already matches this position.
+    var flowDirection: WindowManager.FlowDirection {
+        switch self {
+        // Positions touching the left edge → flow left
+        case .leftHalf, .topLeftQuarter, .bottomLeftQuarter,
+             .firstThird, .firstTwoThirds, .firstFourth, .firstThreeFourths,
+             .topLeftSixth, .bottomLeftSixth:
+            return .left
+        // Positions touching the right edge → flow right
+        case .rightHalf, .topRightQuarter, .bottomRightQuarter,
+             .lastThird, .lastTwoThirds, .lastFourth, .lastThreeFourths,
+             .topRightSixth, .bottomRightSixth:
+            return .right
+        // Positions touching the top edge → flow up
+        case .topHalf:
+            return .up
+        // Positions touching the bottom edge → flow down
+        case .bottomHalf:
+            return .down
+        default:
+            return .none
+        }
+    }
+
+    /// The position the window should arrive at on the adjacent monitor.
+    /// E.g. leftHalf flowing left → arrives as rightHalf on the left monitor.
+    var arrivalPosition: SnapPosition {
+        switch self {
+        case .leftHalf:           return .rightHalf
+        case .rightHalf:          return .leftHalf
+        case .topHalf:            return .bottomHalf
+        case .bottomHalf:         return .topHalf
+        case .topLeftQuarter:     return .topRightQuarter
+        case .topRightQuarter:    return .topLeftQuarter
+        case .bottomLeftQuarter:  return .bottomRightQuarter
+        case .bottomRightQuarter: return .bottomLeftQuarter
+        case .firstThird:         return .lastThird
+        case .lastThird:          return .firstThird
+        case .firstTwoThirds:     return .lastTwoThirds
+        case .lastTwoThirds:      return .firstTwoThirds
+        case .firstFourth:        return .lastFourth
+        case .lastFourth:         return .firstFourth
+        case .firstThreeFourths:  return .lastThreeFourths
+        case .lastThreeFourths:   return .firstThreeFourths
+        case .topLeftSixth:       return .topRightSixth
+        case .topRightSixth:      return .topLeftSixth
+        case .bottomLeftSixth:    return .bottomRightSixth
+        case .bottomRightSixth:   return .bottomLeftSixth
+        default:                  return self
+        }
+    }
+
     /// Whether this position needs the current window frame (dynamic positions).
     var isDynamic: Bool {
         switch self {

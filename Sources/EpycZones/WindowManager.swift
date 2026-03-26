@@ -36,6 +36,21 @@ enum WindowManager {
             break
         }
 
+        // Flow through monitors: if already at this position on the current screen,
+        // move to the adjacent monitor in the snap direction.
+        if NSScreen.screens.count > 1, let currentFrame = currentNSFrame(of: window) {
+            let targetNS = position.frame(in: visibleFrame)
+            if framesMatch(currentFrame, targetNS, tolerance: 15) {
+                if let nextScreen = adjacentScreen(from: screen, direction: position.flowDirection) {
+                    saveFrame(of: window)
+                    let arrivalPosition = position.arrivalPosition
+                    let arrivalNS = arrivalPosition.frame(in: nextScreen.visibleFrame)
+                    applyFrame(arrivalNS, to: window)
+                    return
+                }
+            }
+        }
+
         // Save current frame for restore
         saveFrame(of: window)
 
@@ -173,6 +188,51 @@ enum WindowManager {
         hasher.combine(pid)
         hasher.combine(titleStr)
         return hasher.finalize()
+    }
+
+    // MARK: - Monitor Flow Helpers
+
+    enum FlowDirection {
+        case left, right, up, down, none
+    }
+
+    private static func framesMatch(_ a: CGRect, _ b: CGRect, tolerance: CGFloat) -> Bool {
+        abs(a.origin.x - b.origin.x) < tolerance &&
+        abs(a.origin.y - b.origin.y) < tolerance &&
+        abs(a.width - b.width) < tolerance &&
+        abs(a.height - b.height) < tolerance
+    }
+
+    /// Find the adjacent screen in a spatial direction based on screen arrangement.
+    private static func adjacentScreen(from screen: NSScreen, direction: FlowDirection) -> NSScreen? {
+        let screens = NSScreen.screens
+        guard screens.count > 1 else { return nil }
+
+        let frame = screen.frame
+
+        switch direction {
+        case .right:
+            // Find screen whose left edge is at or near our right edge
+            return screens.filter { $0 != screen }
+                .filter { $0.frame.origin.x >= frame.origin.x + frame.width - 50 }
+                .min(by: { $0.frame.origin.x < $1.frame.origin.x })
+        case .left:
+            // Find screen whose right edge is at or near our left edge
+            return screens.filter { $0 != screen }
+                .filter { $0.frame.origin.x + $0.frame.width <= frame.origin.x + 50 }
+                .max(by: { $0.frame.origin.x + $0.frame.width < $1.frame.origin.x + $1.frame.width })
+        case .up:
+            // NSScreen: higher Y = higher on screen
+            return screens.filter { $0 != screen }
+                .filter { $0.frame.origin.y >= frame.origin.y + frame.height - 50 }
+                .min(by: { $0.frame.origin.y < $1.frame.origin.y })
+        case .down:
+            return screens.filter { $0 != screen }
+                .filter { $0.frame.origin.y + $0.frame.height <= frame.origin.y + 50 }
+                .max(by: { $0.frame.origin.y + $0.frame.height < $1.frame.origin.y + $1.frame.height })
+        case .none:
+            return nil
+        }
     }
 
     // MARK: - Move Between Monitors
