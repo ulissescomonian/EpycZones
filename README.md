@@ -13,23 +13,23 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ulissescomonian/epyczones/releases/tag/v1.0"><img src="https://img.shields.io/badge/version-1.0-blue?style=flat-square" alt="Version 1.0"></a>
+  <a href="https://github.com/ulissescomonian/epyczones/releases/tag/v1.0.1"><img src="https://img.shields.io/badge/version-1.0.1-blue?style=flat-square" alt="Version 1.0.1"></a>
   <img src="https://img.shields.io/badge/macOS-14.0%2B-black?style=flat-square&amp;logo=apple" alt="macOS 14.0 or later">
   <img src="https://img.shields.io/badge/Apple%20Silicon-arm64-555555?style=flat-square&amp;logo=apple" alt="Apple Silicon arm64">
   <img src="https://img.shields.io/badge/Swift-5.9%2B-orange?style=flat-square&amp;logo=swift" alt="Swift 5.9 or later">
-  <a href="https://github.com/ulissescomonian/epyczones/releases/tag/v1.0"><img src="https://img.shields.io/badge/status-Preview-yellow?style=flat-square" alt="Preview status"></a>
+  <a href="https://github.com/ulissescomonian/epyczones/releases/tag/v1.0.1"><img src="https://img.shields.io/badge/status-Preview-yellow?style=flat-square" alt="Preview status"></a>
   <a href="https://github.com/ulissescomonian/epyczones/actions/workflows/ci.yml"><img src="https://github.com/ulissescomonian/epyczones/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/ulissescomonian/epyczones?style=flat-square" alt="MIT License"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/ulissescomonian/epyczones/releases/download/v1.0/EpycZones-1.0-arm64.dmg"><strong>Download EpycZones 1.0 for Apple Silicon (.dmg)</strong></a>
+  <a href="https://github.com/ulissescomonian/epyczones/releases/download/v1.0.1/EpycZones-1.0.1-arm64.dmg"><strong>Download EpycZones 1.0.1 for Apple Silicon (.dmg)</strong></a>
   <br>
-  <a href="https://github.com/ulissescomonian/epyczones/releases/tag/v1.0">Release notes and SHA-256 checksum</a>
+  <a href="https://github.com/ulissescomonian/epyczones/releases/tag/v1.0.1">Release notes and SHA-256 checksum</a>
 </p>
 
 > [!IMPORTANT]
-> EpycZones 1.0 is a Preview. The Apple Silicon app has a local code signature,
+> EpycZones 1.0.1 is a Preview. The Apple Silicon app has a local code signature,
 > not an Apple Developer ID signature. Neither the app nor the DMG is notarized
 > by Apple. Install it only from a source you trust, and never disable
 > Gatekeeper to open it.
@@ -98,14 +98,14 @@ The distributed DMG is not universal and does not run natively on Intel Macs.
 
 ## Install the Preview DMG
 
-1. Download `EpycZones-1.0-arm64.dmg` and
-   `EpycZones-1.0-arm64.dmg.sha256` from the same trusted
-   [v1.0 Release](https://github.com/ulissescomonian/epyczones/releases/tag/v1.0).
+1. Download `EpycZones-1.0.1-arm64.dmg` and
+   `EpycZones-1.0.1-arm64.dmg.sha256` from the same trusted
+   [v1.0.1 Release](https://github.com/ulissescomonian/epyczones/releases/tag/v1.0.1).
 2. Optionally verify the download in Terminal:
 
    ```bash
    cd ~/Downloads
-   shasum -a 256 -c EpycZones-1.0-arm64.dmg.sha256
+   shasum -a 256 -c EpycZones-1.0.1-arm64.dmg.sha256
    ```
 
 3. Open the DMG and drag **EpycZones.app** to **Applications**.
@@ -334,13 +334,11 @@ model. Repository-specific agent instructions live only in
 
 ## Release notes
 
-EpycZones 1.0 includes a premium macOS app icon for the Dock, Finder, DMG,
-and README. The Layout Editor and Settings now share native singleton window
-lifecycle management: repeated commands focus the existing window, minimized
-windows are restored, and the Dock icon remains available until the last
-primary window closes.
+EpycZones 1.0.1 adapts post-drag snapping to macOS 26.6 so windows move directly
+to their target zone without competing with the system's delayed resize and
+position updates. It preserves the stable app identity used by Accessibility.
 
-See the [EpycZones 1.0 Release](https://github.com/ulissescomonian/epyczones/releases/tag/v1.0)
+See the [EpycZones 1.0.1 Release](https://github.com/ulissescomonian/epyczones/releases/tag/v1.0.1)
 for the current download, SHA-256 checksum, installation notes, and known
 limitations.
 
